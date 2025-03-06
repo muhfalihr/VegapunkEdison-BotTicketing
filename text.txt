@@ -1,0 +1,717 @@
+PUT _index_template/production-v2-issue-monitoring
+{
+  "index_patterns": [
+    "production-v2-issue-monitoring-*"
+    ],
+    "template": {
+      "settings": {
+        "number_of_replicas": 1,
+        "number_of_shards": 2
+      },
+      "mappings": {
+        "properties": {
+  "created_at": {
+    "type": "date",
+    "format": "yyyy-MM-dd HH:mm:ss"
+  },
+  "id": {
+    "type": "text",
+    "fields": {
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+      }
+    }
+  },
+  "ingest_time": {
+    "type": "text",
+    "fields": {
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+      }
+    }
+  },
+  "location": {
+    "type": "nested",
+    "properties": {
+      "city_coordinate": {
+        "type": "geo_point"
+      },
+      "city_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "country_code": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "country_coordinate": {
+        "type": "geo_point"
+      },
+      "country_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "district_coordinate": {
+        "type": "geo_point"
+      },
+      "district_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "location_coordinate": {
+        "type": "geo_point"
+      },
+      "location_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "location_type": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "province_coordinate": {
+        "type": "geo_point"
+      },
+      "province_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "sub_distric_coordinate": {
+        "type": "geo_point"
+      },
+      "sub_distric_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "sub_district_coordinate": {
+        "type": "geo_point"
+      },
+      "sub_district_name": {
+        "type": "keyword",
+        "ignore_above": 256
+      },
+      "subdistrict_coordinate": {
+        "type": "geo_point"
+      }
+    }
+  },
+  "raw": {
+    "properties": {
+      "content": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "created_at": {
+        "type": "date",
+        "format": "yyyy-MM-dd HH:mm:ss"
+      },
+      "formatted_data": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "id": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "image": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "platform": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "source": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "title": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "type": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "url": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    }
+  },
+  "raw_analysis_result": {
+    "properties": {
+      "analysis_result": {
+        "properties": {
+          "base_analysis": {
+            "properties": {
+              "analysis_5w1h": {
+                "properties": {
+                  "how": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "what": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "when": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "when_end": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "when_start": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "where": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "who": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "why": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  }
+                }
+              },
+              "involved_government_body": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "involved_government_explanation": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "issue_location": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "issue_location_detail": {
+                "properties": {
+                  "city": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "city_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "city_id": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "city_latitude": {
+                    "type": "float"
+                  },
+                  "city_longitude": {
+                    "type": "float"
+                  },
+                  "country": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "country_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "country_id": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "country_latitude": {
+                    "type": "float"
+                  },
+                  "country_longitude": {
+                    "type": "float"
+                  },
+                  "district": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "district_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "district_id": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "district_latitude": {
+                    "type": "float"
+                  },
+                  "district_longitude": {
+                    "type": "float"
+                  },
+                  "location_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "location_latitude": {
+                    "type": "float"
+                  },
+                  "location_longitude": {
+                    "type": "float"
+                  },
+                  "location_name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "province": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "province_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "province_id": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "province_latitude": {
+                    "type": "float"
+                  },
+                  "province_longitude": {
+                    "type": "float"
+                  },
+                  "subdistrict": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "subdistrict_coordinate": {
+                    "properties": {
+                      "lat": {
+                        "type": "float"
+                      },
+                      "lon": {
+                        "type": "float"
+                      }
+                    }
+                  },
+                  "subdistrict_id": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "subdistrict_latitude": {
+                    "type": "float"
+                  },
+                  "subdistrict_longitude": {
+                    "type": "float"
+                  }
+                }
+              },
+              "location": {
+                "type": "nested",
+                "properties": {
+                  "city_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "city_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "country_code": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "country_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "country_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "district_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "district_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "location_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "location_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "location_type": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "province_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "province_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "sub_distric_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "sub_distric_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "sub_district_coordinate": {
+                    "type": "geo_point"
+                  },
+                  "sub_district_name": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  },
+                  "subdistrict_coordinate": {
+                    "type": "geo_point"
+                  }
+                }
+              },
+              "main_issue": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "metadata": {
+                "type": "nested",
+                "properties": {
+                  "application": {
+                    "type": "keyword"
+                  },
+                  "main_event": {
+                    "type": "keyword"
+                  },
+                  "scope": {
+                    "type": "keyword"
+                  }
+                }
+              },
+              "police_jurisdiction_area": {
+                "properties": {
+                  "polda_name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  },
+                  "polres_name": {
+                    "type": "text",
+                    "fields": {
+                      "keyword": {
+                        "type": "keyword",
+                        "ignore_above": 256
+                      }
+                    }
+                  }
+                }
+              },
+              "summary": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+          },
+          "updated_analysis": {
+            "properties": {
+              "additional_analysis": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "alert_level": {
+                "type": "float"
+              },
+              "alert_level_explanation": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "alert_level_original": {
+                "type": "float"
+              },
+              "impact_score": {
+                "type": "float"
+              },
+              "impact_score_explanation": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "polri_alert_level": {
+                "type": "float"
+              },
+              "polri_alert_level_explanation": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "preventive_measure": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              },
+              "target_stakeholder": {
+                "type": "text",
+                "fields": {
+                  "keyword": {
+                    "type": "keyword",
+                    "ignore_above": 256
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "siae_result": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "times": {
+        "properties": {
+          "overall_process_time": {
+            "type": "float"
+          },
+          "siae_agent": {
+            "type": "float"
+          }
+        }
+      }
+    }
+  },
+  "version": {
+    "type": "long"
+  }
+}
+      }
+    }
+}

@@ -1,0 +1,1 @@
+URGENT_WORDS = ['urgent', 'darurat', 'emergency', 'segera']
