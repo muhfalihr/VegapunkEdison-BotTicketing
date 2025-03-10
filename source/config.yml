@@ -4,7 +4,15 @@ telegram:
   chat_id: -4244608457
 
   admin_ids: 
+    - 771387372
+    - 1005303293
+    - 1311181246
     - 1797658864
+    - 1514282558
+    - 6287270770
+    - 6981739249
+    - 932802187
+    - 796508150
 
 database:
   host: "192.168.107.50"
@@ -13,8 +21,8 @@ database:
   password: "mySqlBOTtICkETing@2k25"
   database: "ticketing"
   tables: # (Don't change it)
-    - tickets
-    - ticket_messages
+    - ticketsv4
+    - ticket_messagesv4
     - banned_users
     - handlers
 
@@ -65,6 +73,10 @@ messages:
   template_open_ticket_in_admin: |
     🎫 *Open Tickets*:
       {list_open_tickets}
+  
+  template_link_open_ticket: |
+    • #{ticket_id} *[ {user_full_name} ]* ( `{user_id}` )
+        ↳ {relative_time} ⇒ [Go to msg]({link_message})
 
   template_open_ticket_not_found: |
     🚫 Tidak ada tiket yang tersedia untuk diambil saat ini.

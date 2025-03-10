@@ -32,13 +32,54 @@ def generate_id(user_id: int) -> str:
 
 
 def epodate(epoch: int, store=False) -> str:
-    dt: datetime = datetime.fromtimestamp(epoch, timezone.utc)
-    dt_gmt7 = dt.astimezone(timezone(timedelta(hours=7)))
-    if not store:
-        fmt_time = dt_gmt7.strftime("%A, %d %B %Y %H:%M:%S")
+    """Convert Unix timestamp to formatted date string in GMT+7 timezone.
+    
+    Args:
+        epoch: Unix timestamp (seconds since Jan 1, 1970)
+        store: If True, use compact format for storage, otherwise use readable format
+        
+    Returns:
+        Formatted date string
+    """
+    tz_gmt7 = timezone(timedelta(hours=7))
+    
+    dt_gmt7 = datetime.fromtimestamp(epoch, tz_gmt7)
+    
+    fmt = "%Y-%m-%d %H:%M:%S" if store else "%A, %d %B %Y %H:%M:%S"
+    return dt_gmt7.strftime(fmt)
+
+
+def reltime(past_time: datetime) -> str:
+    """Convert a datetime to a human-readable relative time string.
+    
+    Args:
+        past_time: The datetime in the past to compare against now
+        
+    Returns:
+        A human-readable string like "5 minutes ago" or "3 months ago"
+    """
+    if past_time.tzinfo is None:
+        past_time = past_time.replace(tzinfo=timezone.utc)
+    
+    datetime_now = datetime.now(timezone.utc)
+    diff = datetime_now - past_time
+    
+    seconds_diff = diff.total_seconds()
+    
+    if seconds_diff < 60:
+        return "just now"
+    elif seconds_diff < 3600:  # 1 hour
+        return f"{int(seconds_diff // 60)} minutes ago"
+    elif seconds_diff < 86400:  # 1 day
+        return f"{int(seconds_diff // 3600)} hours ago"
+    elif seconds_diff < 604800:  # 1 week
+        return f"{diff.days} days ago"
+    elif seconds_diff < 2592000:  # 30 days
+        return f"{diff.days // 7} weeks ago"
+    elif seconds_diff < 31536000:  # 365 days
+        return f"{diff.days // 30} months ago"
     else:
-        fmt_time = dt_gmt7.strftime("%Y-%m-%d %H:%M:%S")
-    return fmt_time
+        return f"{diff.days // 365} years ago"
 
 
 def chakey(json: Dict[str, Any], key: str, new_key: str) -> Dict[str, Any]:

@@ -13,6 +13,7 @@ from telebot.types import (
 from telebot.async_telebot import AsyncTeleBot
 
 from src.types.config import Config
+from src.types.tickets import UserTickets
 from src.types.data_store import MessagesStore, MediaStores
 from src.types.messages import Messages, MessageJson, MessageJsonDoc, MessageJsonPhoto
 from src.utility.bt_formatter import MarkdownFormatter, FormattingEntity
@@ -237,22 +238,28 @@ class HandlerMessages:
             message (Message): The message to handle
         """
         try:
-            print(message)
             user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
-            ticket_open = next((ticket for ticket in user_tickets), None)
+            ticket_open = UserTickets(**next((ticket for ticket in user_tickets), None))
 
             if not ticket_open:
                 ticket_id = generate_id(message.from_user.id)
                 await self.tickets.create_ticket(
                     ticket_id=ticket_id,
+                    user_id=message.from_user.id,
+                    message_id=message.id,
+                    message_chat_id=message.chat.id,
                     username=message.from_user.username,
+                    userfullname=message.from_user.full_name,
                     issue=await self.issue_generator.issue_generator(message),
                     timestamp=message.date
                 )
                 await self.tickets.add_message_to_ticket(
                     ticket_id=ticket_id,
                     user_id=message.from_user.id,
+                    message_id=message.id,
+                    message_chat_id=message.chat.id,
                     username=message.from_user.username,
+                    userfullname=message.from_user.full_name,
                     message=await self.issue_generator.issue_generator(message),
                     timestamp=message.date
                 )
@@ -261,7 +268,7 @@ class HandlerMessages:
                     self.config.messages.reply_message_private, 
                     ticket_id=ticket_id
                 )
-                
+
                 media_group_id = getattr(message, 'media_group_id', None)
                 
                 if media_group_id:
@@ -275,9 +282,23 @@ class HandlerMessages:
                     await self._send_to_group(ticket_id, message)
             
             else:
-                ticket_id = ticket_open.get("ticket_id")
-                # print(message)
-                # await self.telebot.reply_to
+                ticket_id = ticket_open.ticket_id
+                await self.tickets.add_message_to_ticket(
+                    ticket_id=ticket_id,
+                    user_id=message.from_user.id,
+                    message_id=message.id,
+                    message_chat_id=message.chat.id,
+                    username=message.from_user.username,
+                    userfullname=message.from_user.full_name,
+                    message=await self.issue_generator.issue_generator(message),
+                    timestamp=message.date
+                )
+
+                initial_message = self.messages.replay_message(
+                    self.config.messages.reply_message_private, 
+                    ticket_id=ticket_id
+                )
+                await self._send_to_group(ticket_id, message)
 
         except Exception as e:
             self.logger.error(f"Error handling private message: {e}")
@@ -332,7 +353,7 @@ class HandlerMessages:
         opened_tickets = await self.tickets.get_opened_tickets()
         print(opened_tickets)
 
-        if message.chat.id not in self.config.telegram.admin_ids:
+        if message.from_user.id not in self.config.telegram.admin_ids:
             initial_message: Messages = self.messages.open(self.config.messages.template_open_ticket_in_user)
             await self.telebot.reply_to(
                 message=message,
@@ -350,4 +371,13 @@ class HandlerMessages:
                     parse_mode=initial_message.parse_mode
                 )
             else:
-                ...
+                initial_message = self.messages.open(
+                    opened_tickets=opened_tickets,
+                    template1=self.config.messages.template_open_ticket_in_admin,
+                    template2=self.config.messages.template_link_open_ticket
+                )
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                )

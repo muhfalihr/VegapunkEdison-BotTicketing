@@ -28,6 +28,7 @@ class MessagesConfig:
     template_ticket_message: str
     template_open_ticket_in_user: str
     template_open_ticket_in_admin: str
+    template_link_open_ticket: str
     template_open_ticket_not_found: str
 
 

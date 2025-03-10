@@ -21,6 +21,7 @@ from src.resources.queries import (
     GET_CLOSED_TICKETS,
     GET_OPENED_TICKETS
 )
+from src.types.tickets import UserTickets, OpenedTickets
 from src.utility.bt_utility import generate_id, curtime, epodate
 from src.library.bt_aiomysql import BtAioMysql
 
@@ -146,10 +147,13 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to check handler status for user {user_id}: {str(e)}")
             raise
     
-    async def create_ticket(self, ticket_id: str, username: str, issue: str, timestamp: int) -> bool:
+    async def create_ticket(
+            self, ticket_id: str, user_id: str, message_id: int, message_chat_id: int,
+            username: str, userfullname: str, issue: str, timestamp: int) -> bool:
         """Create a new support ticket in the database.
         
         Args:
+            ticket_id: ID of the ticket
             user_id: ID of the user creating the ticket
             username: Username of the ticket creator
             issue: Description of the issue
@@ -158,12 +162,12 @@ class HandlerTickets(BtAioMysql):
         Returns:
             True if ticket was created successfully
         """
-        ticket_id = generate_id(user_id)
+        status = 'open'
         datetime = epodate(timestamp, store=True)
 
         try:
             affected_rows = await self.execute(
-                CREATE_TICKET, (ticket_id, user_id, username, issue, datetime)
+                CREATE_TICKET, (ticket_id, user_id, message_id, message_chat_id, username, userfullname, issue, datetime, status)
             )
             self.logger.info(f"Created ticket {ticket_id} for user {username}")
             return affected_rows > 0
@@ -175,7 +179,10 @@ class HandlerTickets(BtAioMysql):
             self, 
             ticket_id: str, 
             user_id: int, 
+            message_id: int,
+            message_chat_id: int, 
             username: str, 
+            userfullname: str, 
             message: str,
             timestamp: str) -> bool:
         """Add a message to an existing ticket.
@@ -195,7 +202,7 @@ class HandlerTickets(BtAioMysql):
         try:
             affected_rows = await self.execute(
                 ADDED_TICKET_MESSAGE, 
-                (ticket_id, user_id, username, message, datetime)
+                (ticket_id, user_id, message_id, message_chat_id, username, userfullname, message, datetime)
             )
             self.logger.debug(f"Added message to ticket {ticket_id} by {username}")
             return affected_rows > 0
@@ -243,7 +250,7 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to close ticket {ticket_id}: {str(e)}")
             raise
     
-    async def get_user_tickets(self, user_id: int) -> List[Dict[str, Any]]:
+    async def get_user_tickets(self, user_id: int) -> List[UserTickets]:
         """Retrieve all tickets created by a specific user.
         
         Args:
@@ -253,7 +260,7 @@ class HandlerTickets(BtAioMysql):
             List of ticket records
         """
         try:
-            tickets = await self.fetch_all(GET_USER_TICKETS, (user_id,))
+            tickets: List[UserTickets] = await self.fetch_all(GET_USER_TICKETS, (user_id,))
             self.logger.debug(f"Retrieved {len(tickets)} tickets for user {user_id}")
             return tickets
         except Exception as e:
@@ -277,14 +284,14 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to retrieve closed tickets for user {user_id}: {str(e)}")
             raise
     
-    async def get_opened_tickets(self) -> List[Dict[str, Any]]:
+    async def get_opened_tickets(self) -> List[OpenedTickets]:
         """Retrieve all currently open tickets in the system.
         
         Returns:
             List of open ticket records
         """
         try:
-            tickets = await self.fetch_all(GET_OPENED_TICKETS)
+            tickets: List[OpenedTickets] = await self.fetch_all(GET_OPENED_TICKETS)
             self.logger.debug(f"Retrieved {len(tickets)} open tickets")
             return tickets
         except Exception as e:

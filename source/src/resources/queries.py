@@ -1,8 +1,11 @@
 CREATE_TABLE_TICKETS: str = """
-CREATE TABLE IF NOT EXISTS ticketsv2 (
+CREATE TABLE IF NOT EXISTS ticketsv4 (
     ticket_id VARCHAR(64) PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    message_chat_id BIGINT NOT NULL,
     username VARCHAR(255) NOT NULL,
+    userfullname VARCHAR(500) NOT NULL,
     issue TEXT NOT NULL,
     status ENUM('open', 'closed', 'in_progress') DEFAULT 'open',
     handler_id BIGINT NULL,
@@ -16,14 +19,17 @@ CREATE TABLE IF NOT EXISTS ticketsv2 (
 """
 
 CREATE_TABLE_TICKET_MESSAGES: str = """
-CREATE TABLE IF NOT EXISTS ticket_messages (
+CREATE TABLE IF NOT EXISTS ticket_messagesv4 (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id VARCHAR(64) NOT NULL,
     user_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,
+    message_chat_id BIGINT NOT NULL,
     username VARCHAR(255) NOT NULL,
+    userfullname VARCHAR(500) NOT NULL,
     message TEXT NOT NULL,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (ticket_id) REFERENCES ticketsv2(ticket_id) ON DELETE CASCADE,
+    FOREIGN KEY (ticket_id) REFERENCES ticketsv4(ticket_id) ON DELETE CASCADE,
     INDEX idx_ticket_id (ticket_id),
     INDEX idx_user_id (user_id),
     INDEX idx_timestamp (timestamp)
@@ -73,42 +79,42 @@ SELECT COUNT(*) FROM handlers WHERE user_id = %s
 """
 
 CREATE_TICKET: str = """
-INSERT INTO ticketsv2 (ticket_id, user_id, username, issue, created_at, status) 
-VALUES (%s, %s, %s, %s, %s, 'open')
+INSERT INTO ticketsv4 (ticket_id, user_id, message_id, message_chat_id, username, userfullname, issue, created_at, status) 
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 ADDED_TICKET_MESSAGE: str = """
-INSERT INTO ticket_messages (ticket_id, user_id, username, message, timestamp) 
-VALUES (%s, %s, %s, %s, %s)
+INSERT INTO ticket_messagesv4 (ticket_id, user_id, message_id, message_chat_id, username, userfullname, message, timestamp) 
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 GET_TICKET_BY_ID: str = """
-SELECT * FROM ticketsv2 WHERE ticket_id = %s
+SELECT * FROM ticketsv4 WHERE ticket_id = %s
 """
 
 CLOSED_TICKET: str = """
-UPDATE ticketsv2 
+UPDATE ticketsv4 
 SET status = 'closed', handler_id = %s, handler_username = %s, closed_at = %s 
 WHERE ticket_id = %s AND status = 'open'
 """
 
 GET_USER_TICKETS: str = """
-SELECT ticket_id, issue, status, created_at, closed_at, handler_username 
-FROM ticketsv2 
+SELECT ticket_id, user_id, message_id, message_chat_id, issue, status, created_at, closed_at, handler_username 
+FROM ticketsv4 
 WHERE user_id = %s AND status = 'open'
 ORDER BY created_at DESC
 """
 
 GET_CLOSED_TICKETS: str = """
 SELECT ticket_id, issue, handler_username, created_at, closed_at 
-FROM ticketsv2 
+FROM ticketsv4 
 WHERE user_id = %s AND status = 'closed'
 ORDER BY closed_at DESC
 """
 
 GET_OPENED_TICKETS: str = """
-SELECT ticket_id, issue, handler_username, created_at 
-FROM ticketsv2 
+SELECT ticket_id, user_id, message_id, message_chat_id, userfullname, created_at 
+FROM ticketsv4 
 WHERE status = 'open'
 ORDER BY closed_at DESC
 """
