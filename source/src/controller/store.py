@@ -11,6 +11,9 @@ class TempStorage:
     def update(self, data):
         if isinstance(data, dict):
             self.store.update(data)
+    
+    def clear(self):
+        self.store.clear()
 
 class Store:
     def __init__(self):
@@ -27,3 +30,6 @@ class Store:
 
     def jsontempstore(self, data):
         self.temp.update(data)
+
+    def cleartemp(self):
+        self.temp.clear()

@@ -1,3 +1,4 @@
+import re
 import yaml
 import time
 import pytz
@@ -96,3 +97,12 @@ def curtime(timezone: str):
     """Get Current Timestamp with specific Timezone"""
     tz = pytz.timezone(timezone)
     return datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+
+def search(s: str, p: str):
+    pattern = re.compile(p)
+    matches = pattern.search(s)
+
+    if matches:
+        result = matches
+        return result
+    return None

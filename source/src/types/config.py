@@ -9,7 +9,6 @@ class TelegramConfig:
     chat_id: int
     admin_ids: List[int]
 
-
 @dataclass
 class DatabaseConfig:
     host: str
@@ -19,22 +18,8 @@ class DatabaseConfig:
     database: str
     tables: List[str]
 
-
-@dataclass
-class MessagesConfig:
-    custom_welcome_message: str
-    reply_message_private: str
-    urgent_issue_messagge: str
-    template_ticket_message: str
-    template_open_ticket_in_user: str
-    template_open_ticket_in_admin: str
-    template_link_open_ticket: str
-    template_open_ticket_not_found: str
-
-
 @dataclass
 class Config:
     telegram: TelegramConfig
     database: DatabaseConfig
-    messages: MessagesConfig
     timezone: str

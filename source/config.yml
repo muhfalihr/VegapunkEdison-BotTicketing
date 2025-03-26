@@ -1,18 +1,14 @@
 telegram:
   token: "7933867253:AAFDSRhNmoYzgPfVA8ZvldAfRZgSU9yfoDY"
 
-  chat_id: -4244608457
+  chat_id: -1002365039269
 
   admin_ids: 
-    - 771387372
-    - 1005303293
-    - 1311181246
+    - 1276187109
+    - 707716709
+    - 299596441
+    - 7933867253
     - 1797658864
-    - 1514282558
-    - 6287270770
-    - 6981739249
-    - 932802187
-    - 796508150
 
 database:
   host: "192.168.107.50"
@@ -21,63 +17,10 @@ database:
   password: "mySqlBOTtICkETing@2k25"
   database: "ticketing"
   tables: # (Don't change it)
+    - usersv2
     - ticketsv4
-    - ticket_messagesv4
+    - ticket_messagesv5
     - banned_users
     - handlers
 
 timezone: "Asia/Jakarta"
-
-messages:
-  custom_welcome_message: |
-    🙏 Selamat datang di *Binstro Support System*
-
-    Terima kasih telah menghubungi kami. Untuk membantu Anda dengan lebih baik:
-
-    📝 Setiap pesan yang Anda kirimkan akan secara otomatis dibuatkan tiket
-    ⏱️ Tim kami akan merespons secepatnya
-    ✅ Mohon jelaskan keluhan atau pertanyaan Anda secara detail
-
-    Silakan sampaikan keluhan atau pertanyaan Anda sekarang.
-
-  reply_message_private: |
-    🎫 *Ticket #{ticket_id}*
-
-    Terima kasih 🙏 telah menghubungi *Binstro Support*.
-
-    ✅ Pesan Anda telah kami terima dan akan segera diproses.
-    📋 Tim kami akan menindaklanjuti dalam waktu 1x24 jam kerja.
-
-  urgent_issue_messagge: |
-    ⚠️ *Laporan Urgent*
-
-    Kami memahami urgensi laporan Anda. Tim kami akan memprioritaskan 
-    penanganan masalah ini dengan response time 4 jam kerja.
-    Mohon tunggu sebentar, tim kami akan segera menghubungi Anda.
-
-  template_ticket_message: |
-    🎫 *Ticket* #{ticket_id}
-
-    👤 `{user_name}` (@{username})
-    ⏰ `{timestamp}`
-
-    📝 Details:
-    {message}
-  
-  template_open_ticket_in_user: |
-    ⚠️ *Perhatian!* ⚠️
-    Anda bukan administrator sistem dan tidak memiliki akses untuk menjalankan perintah pada bot ini.
-    Silakan hubungi administrator jika Anda memerlukan bantuan lebih lanjut.
-    Terima kasih atas pengertian Anda! 🤖✨
-
-  template_open_ticket_in_admin: |
-    🎫 *Open Tickets*:
-      {list_open_tickets}
-  
-  template_link_open_ticket: |
-    • #{ticket_id} *[ {user_full_name} ]* ( `{user_id}` )
-        ↳ {relative_time} ⇒ [Go to msg]({link_message})
-
-  template_open_ticket_not_found: |
-    🚫 Tidak ada tiket yang tersedia untuk diambil saat ini.
-    Coba lagi nanti atau periksa antrian tiket secara berkala.

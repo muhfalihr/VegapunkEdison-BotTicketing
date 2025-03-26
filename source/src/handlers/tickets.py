@@ -9,21 +9,37 @@ from src.resources.queries import (
     CREATE_TABLE_TICKET_MESSAGES,
     CREATE_TABLE_BANNED_USERS,
     CREATE_TABLE_HANDLERS,
+    CREATE_TABLE_USERS_DETAILS,
     GET_ALL_TABLES,
     INSERT_USER_FOR_HANDLER,
     GET_ALL_HANDLERS,
     CHECK_USER_IS_HANDLER,
     CREATE_TICKET,
+    ADDED_USER_DETAILS,
     ADDED_TICKET_MESSAGE,
+    UPDATE_USER_DETAILS,
+    GET_USER_DETAILS_BY_ID,
     GET_TICKET_BY_ID,
     CLOSED_TICKET,
     GET_USER_TICKETS,
     GET_CLOSED_TICKETS,
-    GET_OPENED_TICKETS
+    GET_OPENED_TICKETS,
+    GET_TICKET_MESSAGES,
+    GET_USER_BY_USERNAME,
+    GET_ALL_TICKET_MESSAGES,
+    GET_HISTORY_HANDLER_TICKETS,
+    GET_CLOSED_TICKETS_BY_TICKETID
 )
-from src.types.tickets import UserTickets, OpenedTickets
-from src.utility.bt_utility import generate_id, curtime, epodate
-from src.library.bt_aiomysql import BtAioMysql
+from src.types.tickets import (
+    UserTickets, 
+    ClosedTicket, 
+    OpenedTickets,
+    TicketMessages,
+    HistoryHandlerTickets, 
+    Handlers
+)
+from src.utility.utility import generate_id, curtime, epodate
+from src.library.database import BtAioMysql
 
 
 class HandlerTickets(BtAioMysql):
@@ -60,7 +76,8 @@ class HandlerTickets(BtAioMysql):
                     CREATE_TABLE_TICKETS, 
                     CREATE_TABLE_TICKET_MESSAGES, 
                     CREATE_TABLE_BANNED_USERS, 
-                    CREATE_TABLE_HANDLERS
+                    CREATE_TABLE_HANDLERS,
+                    CREATE_TABLE_USERS_DETAILS
                 ]
                 if self._extract_table_name(table_def) not in existing_table_names
             ]
@@ -99,6 +116,36 @@ class HandlerTickets(BtAioMysql):
             self.logger.warning(f"Could not extract table name from: {str(e)}")
             return
     
+    async def registration_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str):
+        try:
+            affected_rows = await self.execute(
+                ADDED_USER_DETAILS, (id, is_bot, first_name, username, last_name,)
+            )
+            self.logger.info(f"Added user {username} with id {id}")
+            return affected_rows > 0
+        except Exception as e:
+            self.logger.error(f"Failed to add user {username}: {str(e)}")
+            raise
+    
+    async def update_user(self, id: int, first_name: str, username: str, last_name: str):
+        try:
+            affected_rows = await self.execute(
+                UPDATE_USER_DETAILS, (id, first_name, username, last_name,)
+            )
+            self.logger.info(f"Update user with id {id}")
+            return affected_rows > 0
+        except Exception as e:
+            self.logger.error(f"Failed to update user with id {id}: {str(e)}")
+            raise
+    
+    async def get_userid_by_username(self, username: str):
+        try:
+            result = await self.fetch_one(GET_USER_BY_USERNAME, (username,))
+            return result
+        except Exception as e:
+            self.logger.error(f"Failed to get userid with {username}: {str(e)}")
+            raise
+    
     async def registration_handler(self, user_id: int, username: str) -> bool:
         """Register a new support handler in the system.
         
@@ -117,14 +164,17 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to register handler {username}: {str(e)}")
             raise
     
-    async def get_all_handlers(self) -> List[Dict[str, Any]]:
+    async def get_all_handlers(self) -> List[Handlers]:
         """Retrieve all registered support handlers.
         
         Returns:
             List of handler records
         """
         try:
-            handlers = await self.fetch_all(GET_ALL_HANDLERS)
+            handlers = [
+                Handlers(**handler) for handler in
+                await self.fetch_all(GET_ALL_HANDLERS)
+            ]
             self.logger.debug(f"Retrieved {len(handlers)} handlers")
             return handlers
         except Exception as e:
@@ -184,6 +234,7 @@ class HandlerTickets(BtAioMysql):
             username: str, 
             userfullname: str, 
             message: str,
+            message_from: str,
             timestamp: str) -> bool:
         """Add a message to an existing ticket.
         
@@ -202,7 +253,8 @@ class HandlerTickets(BtAioMysql):
         try:
             affected_rows = await self.execute(
                 ADDED_TICKET_MESSAGE, 
-                (ticket_id, user_id, message_id, message_chat_id, username, userfullname, message, datetime)
+                (ticket_id, user_id, message_id, message_chat_id, 
+                 username, userfullname, message, message_from, datetime)
             )
             self.logger.debug(f"Added message to ticket {ticket_id} by {username}")
             return affected_rows > 0
@@ -224,6 +276,27 @@ class HandlerTickets(BtAioMysql):
             return result
         except Exception as e:
             self.logger.error(f"Failed to retrieve ticket {ticket_id}: {str(e)}")
+            raise
+    
+    async def get_user_tickets_history(self, user_id: int) -> List[HistoryHandlerTickets]:
+        try:
+            result = await self.fetch_all(GET_HISTORY_HANDLER_TICKETS, (user_id,))
+            tickets = [
+                HistoryHandlerTickets(**ticket)
+                for ticket in result
+            ]
+            self.logger.debug(f"Retrieved {len(tickets)} tickets for user {user_id}")
+            return tickets
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve tickets for user {user_id}: {str(e)}")
+            raise
+    
+    async def get_user_details_by_id(self, id: int):
+        try:
+            result = await self.fetch_one(GET_USER_DETAILS_BY_ID, (id,))
+            return result
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve user {id}: {str(e)}")
             raise
     
     async def close_ticket(self, ticket_id: str, handler_id: int, handler_username: str, timezone: str) -> bool:
@@ -248,6 +321,14 @@ class HandlerTickets(BtAioMysql):
             return affected_rows > 0
         except Exception as e:
             self.logger.error(f"Failed to close ticket {ticket_id}: {str(e)}")
+            raise
+    
+    async def get_closed_ticket_by_ticketid(self, id: str):
+        try:
+            result = await self.fetch_one(GET_CLOSED_TICKETS_BY_TICKETID, (id,))
+            return ClosedTicket(**result)
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve ticket {id}: {str(e)}")
             raise
     
     async def get_user_tickets(self, user_id: int) -> List[UserTickets]:
@@ -296,4 +377,40 @@ class HandlerTickets(BtAioMysql):
             return tickets
         except Exception as e:
             self.logger.error(f"Failed to retrieve open tickets: {str(e)}")
+            raise
+    
+    async def get_ticket_messages(
+            self, 
+            ticket_id: str, 
+            user_id: Optional[int] = None, 
+            is_handler: bool = False):
+
+        try:
+            if user_id and not is_handler:
+                result = await self.fetch_one(
+                    GET_TICKET_MESSAGES, 
+                    (ticket_id, user_id,)
+                )
+                if result.get("count") == 0:
+                    return []
+            
+            messages = await self.fetch_all(
+                GET_ALL_TICKET_MESSAGES, (ticket_id,)
+            )
+            
+            if not messages:
+                return []
+
+            messages = [TicketMessages(**msg) for msg in messages]
+            return messages
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve tickets messages: {str(e)}")
+            raise
+    
+    async def user_is_handler(self, user_id: str):
+        try:
+            result = await self.fetch_one(CHECK_USER_IS_HANDLER, (user_id,))
+            return result.__getitem__("COUNT(*)") > 0
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve handler {user_id}: {str(e)}")
             raise

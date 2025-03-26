@@ -1,17 +1,21 @@
 import asyncio
 
 from loguru import logger
+from aiohttp import ClientSession
 from telebot.handler_backends import State, StatesGroup
 from telebot.async_telebot import AsyncTeleBot
 from telebot.storage import StateMemoryStorage
+from telebot import asyncio_helper
 
-from src.config.config import config
-from src.controller.bt_store import Store
+from src.localization.config import config
+from src.localization.template import template
+from src.controller.store import Store
+from src.types.tickets import MessageFrom
 from src.handlers.messages import HandlerMessages
 from src.handlers.tickets import HandlerTickets
-from src.controller.bt_message import SetupMessage
-from src.utility.bt_formatter import MarkdownFormatter
-from src.controller.bt_issue_generator import IssueGenerator
+from src.controller.message import SetupMessage
+from src.utility.formatter import MarkdownFormatter
+from src.controller.issue_generator import IssueGenerator
 
 
 class BotTicketing(HandlerMessages):
@@ -19,6 +23,7 @@ class BotTicketing(HandlerMessages):
         super().__init__()
         self.logger = logger
         self.config = config
+        self.template = template
 
         self.telebot: AsyncTeleBot = AsyncTeleBot(
             token=self.config.telegram.token, 
@@ -26,22 +31,51 @@ class BotTicketing(HandlerMessages):
         
         self.storage: Store = Store()
         self.messages: SetupMessage = SetupMessage()
+        self.message_from: MessageFrom = MessageFrom()
         self.tickets: HandlerTickets = HandlerTickets()
         self.markdown: MarkdownFormatter = MarkdownFormatter()
         self.issue_generator: IssueGenerator = IssueGenerator()
-        
+
         self._setup_handlers()
 
     def _setup_handlers(self):
+
+        @self.telebot.message_handler(commands=["help"], chat_types=["private", "group", "supergroup"])
+        async def help_handler(message):
+            ...
+
+        # @self.telebot.message_handler(commands=["regist"])
+        # async def regist_handler(message):
+        #     await self.handler_regist_user_handler(message)
+
+
+        # @self.telebot.message_handler(commands=["handlers"])
+        # async def user_handler(message):
+        #     ...
 
         @self.telebot.message_handler(commands=["start"])
         async def start_handler(message):
             await self.handler_message_start(message)
 
 
-        @self.telebot.message_handler(commands=["open"])
+        @self.telebot.message_handler(commands=["close"], chat_types=["group", "supergroup"])
+        async def close_ticket_handler(message):
+            await self.handler_closed_tickets(message)
+
+
+        @self.telebot.message_handler(commands=["open"], chat_types=["group", "supergroup"])
         async def open_ticket_handler(message):
             await self.handler_open_tickets(message)
+        
+
+        @self.telebot.message_handler(commands=["conversation"], chat_types=["group", "supergroup"])
+        async def conversation_handler(message):
+            await self.handler_conversation(message)
+        
+
+        @self.telebot.message_handler(commands=["history"], chat_types=["group", "supergroup"])
+        async def history_handler(message):
+            await self.handler_history(message)
 
         
         @self.telebot.message_handler(content_types=["text", "document", "photo", "video", "sticker"], chat_types=["private"])
@@ -49,20 +83,34 @@ class BotTicketing(HandlerMessages):
             await self.handler_message_private(message)
         
 
-    async def start_polling(self):
-        try:
-            await self.tickets.setup_tables(
-                database=self.config.database.database, 
-                list_tables=self.config.database.tables
-            )
-            
-            await self.telebot.delete_webhook()
-            await self.telebot.infinity_polling()
-        except Exception as e:
-            print(e)
-        finally:
-            await self.telebot.close_session()
+        @self.telebot.message_handler(content_types=["text", "document", "photo", "video", "sticker"], chat_types=["group", "supergroup"])
+        async def handle_message_from_admin(message):
+            print("message group")
+            await self.handler_message_group(message)
 
+
+    async def start_polling(self):
+        async with ClientSession() as session:
+            asyncio_helper.session = session
+            try:
+                await self.tickets.setup_tables(
+                    database=self.config.database.database,
+                    list_tables=self.config.database.tables
+                )
+                
+                await self.telebot.delete_webhook(drop_pending_updates=True)
+                
+                await self.telebot.infinity_polling(
+                    timeout=10, 
+                    request_timeout=60
+                )
+            except KeyboardInterrupt:
+                logger.info("Polling interrupted by user. Shutting down gracefully...")
+                await self.telebot.close()
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Polling error: {e}", exc_info=True)
+                raise
 
 if __name__ == "__main__":
     bt = BotTicketing()

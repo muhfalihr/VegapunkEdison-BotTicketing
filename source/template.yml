@@ -1,0 +1,132 @@
+messages:
+  custom_welcome_message: |
+    🙏 Selamat datang di *Binstro Support System*
+
+    Terima kasih telah menghubungi kami. Untuk membantu Anda dengan lebih baik:
+
+    📝 Setiap pesan yang Anda kirimkan akan secara otomatis dibuatkan tiket
+    ⏱️ Tim kami akan merespons secepatnya
+    ✅ Mohon jelaskan keluhan atau pertanyaan Anda secara detail
+
+    Silakan sampaikan keluhan atau pertanyaan Anda sekarang.
+
+  reply_message_private: |
+    🎫 *Ticket #{ticket_id}*
+
+    Terima kasih 🙏 telah menghubungi *Binstro Support*.
+
+    ✅ Pesan Anda telah kami terima dan akan segera diproses.
+    📋 Tim kami akan menindaklanjuti dalam waktu 1x24 jam kerja.
+  
+  reply_additional_message_private: |
+    ✅ Pesan Anda telah berhasil ditambahkan ke dalam tiket.
+    📋 Tim kami akan menindaklanjuti dalam waktu 1x24 jam kerja.
+
+  urgent_issue_messagge: |
+    ⚠️ *Laporan Urgent*
+
+    Kami memahami urgensi laporan Anda. Tim kami akan memprioritaskan 
+    penanganan masalah ini dengan response time 4 jam kerja.
+    Mohon tunggu sebentar, tim kami akan segera menghubungi Anda.
+
+  template_ticket_message: |
+    🎫 *Ticket* #{ticket_id}
+
+    🪪 *{user_name}* (@{username})
+    ⏰ `{timestamp}`
+
+    📝 *Details :*
+    {message}
+  
+  template_ticket_message_admin: |
+    💬 *Balasan dari* 🪪 `{user_name}` (@{username})
+
+    📝 *Details :*
+    {message}
+  
+  template_reply_bot_message: |
+    🚀 Sukses! Balasan telah dikirim ke pengguna dengan *Tiket* #{ticket_id} 📨
+  
+  template_warning_message: |
+    ⚠️ *Perhatian!* ⚠️
+    Anda bukan administrator sistem dan tidak memiliki akses untuk menjalankan perintah pada bot ini.
+    Silakan hubungi administrator jika Anda memerlukan bantuan lebih lanjut.
+    Terima kasih atas pengertian Anda! 🤖✨
+  
+  template_invalid_message: |
+    ⚠️ Maaf! Pesan tidak dapat diproses karena command tidak valid untuk user. 🚫
+    ✅ Silakan gunakan command yang tersedia.
+    🙏 Terima kasih!
+  
+  template_invalid_format_message: |
+    ❌ *INVALID FORMAT*: 💬 Pesan tidak memenuhi persyaratan 🧾.
+  
+  template_reply_badwords: |
+    🚫 Mohon maaf, pesan Anda mengandung konten yang tidak sesuai dengan pedoman kami. 
+    ✏️ Silakan kirim ulang tanpa kata-kata kasar atau tidak pantas.
+    🙏 Terima kasih atas pengertian Anda.
+  
+  template_user_not_handler: |
+    🚫 *ACTION DENIED*: Anda bukan user handler bot ticketing ini.
+    Silahkan hubungi _Admin_ 📞 👨🏼‍💻.
+  
+  template_not_conversation: |
+    🎫 *Ticket* #{ticket_id} belum memiliki percakapan. 💬❓
+  
+  template_conversation: |
+    📬 Percakapan dalam *Ticket* #{ticket_id} ↴{conversation}
+  
+  template_content_conversation: |
+    {space}🪪 *{userfullname}* (@{username})
+    {space}      ↳ 💬 {message}
+    {space}           ⏰ `{timestamp}`
+
+  template_open_ticket_in_admin: |
+    🎫 *Open Tickets*:{list_open_tickets}
+  
+  template_link_open_ticket: |
+    • #{ticket_id}  |  🪪 *{user_full_name}* (@{username})
+        ↳ ⏱️ {relative_time}  |  🔗 [View Message]({link_message})
+
+  template_open_ticket_not_found: |
+    🚫 *ACTION DENIED*: Tidak ada 🎫 tiket yang tersedia.
+    Coba lagi nanti atau periksa antrian tiket secara berkala.
+
+  template_close_ticket_not_reply: |
+    ⚠️ *PERHATIKAN*: Anda wajib membalas pesan yang mencantumkan Ticket ID untuk menutup tiket.
+  
+  template_closed_ticket: |
+    🎫 *Ticket* #{ticket_id} - *CLOSED*
+    ⏰ `{timestamp}`
+  
+  template_reply_closed_ticket: |
+    🚫 *ACTION DENIED*: 🎫 Tiket sudah ditutup.
+    Ditutup oleh 🪪 @{username} ⏱️ `{datetime}`.
+  
+  template_help_private: |
+    /start
+  
+  template_help_group: |
+    /open
+    /close
+    /conversation
+  
+  template_empty_history: |
+    📭 Belum ada riwayat tiket!
+  
+  template_history: |
+    🗃 History Handling Tickets *( Today )* :{history_handling_tickets}
+  
+  template_list_history: |
+    {space}🎫 *Ticket* #{ticket_id}
+    {space}  ↳ 📊 *{status}*
+    {space}{space}   ⏰ `{timestamp}`
+
+  template_admin_only: |
+    ⛔ *AKSES TERBATAS*: Perintah ini hanya dapat digunakan oleh _Administrator_.
+  
+  template_must_reply_to_message: |
+    ⚠️ *PERHATIKAN*: Anda harus membalas semua pesan dari user.
+  
+  template_reply_message_text_none: |
+    ⚠️ *PERHATIKAN*: Anda harus membalas semua pesan dari user yang berupa text.

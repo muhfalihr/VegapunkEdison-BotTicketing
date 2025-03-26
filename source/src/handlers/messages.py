@@ -1,7 +1,8 @@
 import asyncio
+
 from loguru import logger
 from typing import List, Dict, Any, Optional, Union
-from telebot.types import Message
+from telebot.types import Message, LinkPreviewOptions
 from telebot.types import (
     InputMedia, 
     InputMediaAnimation, 
@@ -12,16 +13,29 @@ from telebot.types import (
 )
 from telebot.async_telebot import AsyncTeleBot
 
+from src.utility.const import (
+    INVALID_MESSAGE_IN_USER, 
+    BAD_WORDS, 
+    MESSAGE_PATTERN
+)
+
 from src.types.config import Config
-from src.types.tickets import UserTickets
+from src.types.template import Template
+from src.types.tickets import UserTickets, MessageFrom, UserDetails
 from src.types.data_store import MessagesStore, MediaStores
-from src.types.messages import Messages, MessageJson, MessageJsonDoc, MessageJsonPhoto
-from src.utility.bt_formatter import MarkdownFormatter, FormattingEntity
-from src.utility.bt_utility import generate_id, epodate, chakey, arson
+from src.types.messages import (
+    Messages, 
+    MessageJson, 
+    MessageJsonDoc, 
+    MessageJsonPhoto, 
+    MessageJsonVideo
+)
+from src.utility.formatter import MarkdownFormatter, FormattingEntity
+from src.utility.utility import generate_id, epodate, chakey, arson, search
 from src.handlers.tickets import HandlerTickets
-from src.controller.bt_issue_generator import IssueGenerator
-from src.controller.bt_message import SetupMessage
-from src.controller.bt_store import Store
+from src.controller.issue_generator import IssueGenerator
+from src.controller.message import SetupMessage
+from src.controller.store import Store
 
 
 class HandlerMessages:
@@ -32,14 +46,16 @@ class HandlerMessages:
         self.logger = logger
         self.config: Optional[Config] = None
         self.storage: Optional[Store] = None
+        self.template: Optional[Template] = None
         self.telebot: Optional[AsyncTeleBot] = None
         self.messages: Optional[SetupMessage] = None
         self.tickets: Optional[HandlerTickets] = None
         self.markdown: Optional[MarkdownFormatter] = None
         self.issue_generator: Optional[IssueGenerator] = None
+        self.message_from: Optional[MessageFrom] = None
 
     async def _send_message(self, chat_id: Union[int, str], message_obj: Messages, 
-                           message_type: str = "text", media_id: str = None) -> None:
+                           message_type: str = "text", media_id: str = None) -> Message:
         """
         Unified method to send different message types to a specified chat.
         
@@ -51,63 +67,77 @@ class HandlerMessages:
         """
         try:
             if message_type == "text":
-                await self.telebot.send_message(
+                msg: Message = await self.telebot.send_message(
                     chat_id=chat_id, 
                     text=message_obj.text, 
-                    parse_mode=message_obj.parse_mode
+                    parse_mode=message_obj.parse_mode,
+                    link_preview_options=LinkPreviewOptions(is_disabled=False, show_above_text=True)
                 )
             elif message_type == "document":
-                await self.telebot.send_document(
+                msg: Message = await self.telebot.send_document(
                     chat_id=chat_id,
                     document=media_id,
                     caption=message_obj.text,
                     parse_mode=message_obj.parse_mode
                 )
             elif message_type == "photo":
-                await self.telebot.send_photo(
+                msg: Message = await self.telebot.send_photo(
                     chat_id=chat_id,
                     photo=media_id,
                     caption=message_obj.text,
                     parse_mode=message_obj.parse_mode
                 )
+            elif message_type == "video":
+                msg: Message = await self.telebot.send_video(
+                    chat_id=chat_id,
+                    video=media_id,
+                    caption=message_obj.text,
+                    parse_mode=message_obj.parse_mode
+                )
+            
+            return msg
         except Exception as e:
             self.logger.error(f"Error sending message: {e}")
 
-    async def _sender_message_reply(self, message: Message, initial_message: Messages) -> None:
+    async def _sender_message_reply(self, chat_id: int,  message: Message, initial_message: Messages) -> None:
         """
         Reply to a message based on its content type.
         """
-        message_chat_id = self.config.telegram.chat_id
-        
         try:
             if message.content_type == "text":
-                await self._send_message(message_chat_id, initial_message)
+                msg: Message = await self._send_message(chat_id, initial_message)
             elif message.content_type == "document":
-                await self._send_message(message_chat_id, initial_message, "document", message.document.file_id)
+                msg: Message = await self._send_message(chat_id, initial_message, "document", message.document.file_id)
             elif message.content_type == "photo":
-                await self._send_message(message_chat_id, initial_message, "photo", message.photo[-1].file_id)
+                msg: Message = await self._send_message(chat_id, initial_message, "photo", message.photo[-1].file_id)
+            elif message.content_type == "video":
+                msg: Message = await self._send_message(chat_id, initial_message, "video", message.video.file_id)
+            return msg
         except Exception as e:
             self.logger.error(f"Error in sender_message_reply: {e}")
 
     async def _sender_message_media_group_reply(
             self, 
+            chat_id: int,
             medias: List[Union[InputMedia, InputMediaAnimation, InputMediaAudio, 
                               InputMediaDocument, InputMediaPhoto, InputMediaVideo]], 
             initial_message: Messages) -> None:
         """
         Reply with a media group message.
         """
-        message_chat_id = self.config.telegram.chat_id
-
         try:
             if initial_message.text and medias:
                 medias[0].caption = initial_message.text
                 medias[0].parse_mode = initial_message.parse_mode
+            
+            
+            
 
-            await self.telebot.send_media_group(
-                chat_id=message_chat_id,
+            msg: Message = await self.telebot.send_media_group(
+                chat_id=chat_id,
                 media=medias
             )
+            return msg
         except Exception as e:
             self.logger.error(f"Error sending media group: {e}")
     
@@ -132,11 +162,13 @@ class HandlerMessages:
             return (self.markdown.escape_undescores(text) if not entities else 
                     self.markdown.format_text(text, [FormattingEntity(**entity) for entity in entities]))
         
-        elif message.content_type in ["document", "photo"]:
+        elif message.content_type in ["document", "photo", "video"]:
             if message.content_type == "document":
                 message_json = MessageJsonDoc(**chakey(message.json, "from", "_from"))
-            else:  
+            elif message.content_type == "photo":
                 message_json = MessageJsonPhoto(**chakey(message.json, "from", "_from"))
+            else:
+                message_json = MessageJsonVideo(**chakey(message.json, "from", "_from"))
             
             caption = message.caption or "..."
             caption_entities = message_json.caption_entities
@@ -162,7 +194,7 @@ class HandlerMessages:
             message_text = self._get_formatted_message_text(message)
             
             initial_message = self.messages.replay_message(
-                self.config.messages.template_ticket_message, 
+                self.template.messages.template_ticket_message, 
                 ticket_id=ticket_id,
                 user_name=message.from_user.full_name,
                 username=message.from_user.username,
@@ -172,22 +204,114 @@ class HandlerMessages:
             
             if getattr(message, 'media_group_id', None):
                 media_group_id = self.storage.temp.get("media_group_id")
-                media_store = self.storage.temp.get(f"photo_{media_group_id}")
-                if media_store and hasattr(media_store, 'medias'):
-                    await self._sender_message_media_group_reply(media_store.medias, initial_message)
+
+                if hasattr(message, 'photo') and message.photo:
+                    media_store = self.storage.temp.get(f"photo_{media_group_id}")
+                    
+                    if media_store and hasattr(media_store, 'medias'):
+                        msg: Message = await self._sender_message_media_group_reply(
+                            chat_id=self.config.telegram.chat_id, 
+                            medias=media_store.medias, 
+                            initial_message=initial_message
+                        )
+                
+                elif hasattr(message, 'video') and message.video:
+                    media_store = self.storage.temp.get(f"video_{media_group_id}")
+                    
+                    if media_store and hasattr(media_store, 'medias'):
+                        msg: Message = await self._sender_message_media_group_reply(
+                            chat_id=self.config.telegram.chat_id, 
+                            medias=media_store.medias, 
+                            initial_message=initial_message
+                        )
+
+                elif hasattr(message, 'document') and message.document:
+                    media_store = self.storage.temp.get(f"document_{media_group_id}")
+                    
+                    if media_store and hasattr(media_store, 'medias'):
+                        msg: Message = await self._sender_message_media_group_reply(
+                            chat_id=self.config.telegram.chat_id, 
+                            medias=media_store.medias, 
+                            initial_message=initial_message
+                        )
+                        
+                        
             else:
-                await self._sender_message_reply(message, initial_message)
+                msg: Message = await self._sender_message_reply(
+                    chat_id=self.config.telegram.chat_id, 
+                    message=message, 
+                    initial_message=initial_message
+                )
+            return msg
         except Exception as e:
             self.logger.error(f"Error sending to group: {e}")
+    
 
-    async def _process_media_group_after_delay(self, media_group_id: str) -> None:
+    async def _send_to_private(self, message: Message, from_group: bool = False, username: str = None):
+        message_text = self._get_formatted_message_text(message)
+        initial_message = self.messages.replay_message(
+            text=self.template.messages.template_ticket_message_admin,
+            user_name=message.from_user.full_name,
+            username=message.from_user.username,
+            message=message_text
+        )
+        message_from_user_id = message.from_user.id
+        if from_group:
+            message_from_user_id = await self.tickets.get_userid_by_username(username)
+            message_from_user_id = message_from_user_id.get("id") if message_from_user_id else None
+
+        if getattr(message, 'media_group_id', None):
+            media_group_id = self.storage.temp.get("media_group_id")
+
+            if hasattr(message, 'photo') and message.photo:
+                media_store = self.storage.temp.get(f"photo_{media_group_id}")
+                if media_store and hasattr(media_store, 'medias'):
+                    msg: Message = await self._sender_message_media_group_reply(
+                        chat_id=message_from_user_id, 
+                        medias=media_store.medias, 
+                        initial_message=initial_message
+                    )
+            
+            elif hasattr(message, 'video') and message.video:
+                media_store = self.storage.temp.get(f"video_{media_group_id}")
+                if media_store and hasattr(media_store, 'medias'):
+                    msg: Message = await self._sender_message_media_group_reply(
+                        chat_id=message_from_user_id, 
+                        medias=media_store.medias, 
+                        initial_message=initial_message
+                    )
+                
+            elif hasattr(message, 'document') and message.document:
+                media_store = self.storage.temp.get(f"document_{media_group_id}")
+                if media_store and hasattr(media_store, 'medias'):
+                    msg: Message = await self._sender_message_media_group_reply(
+                        chat_id=message_from_user_id, 
+                        medias=media_store.medias, 
+                        initial_message=initial_message
+                    )
+
+        else:
+            msg: Message = await self._sender_message_reply(message_from_user_id, message, initial_message)
+        return msg
+    
+
+    async def _send_closed_private(self, chat_id: str, message: Message, **kwargs):
+        initial_message = self.messages.replay_message(
+            self.template.messages.template_closed_ticket,
+            **kwargs
+        )
+        await self._sender_message_reply(
+            chat_id, message, initial_message
+        )
+
+    async def _process_media_groups_after_delay(self, media_group_id: str) -> Message:
         """
         Process a media group after a short delay to collect all media.
         
         Args:
             media_group_id: The ID of the media group to process
         """
-        await asyncio.sleep(0.1)  
+        await asyncio.sleep(0.1)
 
         try:
             group_data: MessagesStore = self.storage.temp.get(media_group_id)
@@ -203,10 +327,94 @@ class HandlerMessages:
                 
                 group_data.processed = True
                 self.storage.tempstore(media_group_id, group_data)
+                
+                _message = messages[-1]
+                
+                for message in messages:
+                    message_text = (message.text or message.caption)
+                    if message_text:
+                        _message = message
+                        break
 
-                await self._send_to_group(ticket_id=ticket_id, message=messages[0])
+                
+                
+                msg: Union[Message,List[Message]] = await self._send_to_group(ticket_id=ticket_id, message=_message)
+                
+
+                if isinstance(msg, list):
+                    for m in msg:
+                        await self.tickets.add_message_to_ticket(
+                            ticket_id=ticket_id,
+                            user_id=_message.from_user.id,
+                            message_id=m.id,
+                            message_chat_id=m.chat.id,
+                            username=_message.from_user.username,
+                            userfullname=_message.from_user.full_name,
+                            message=await self.issue_generator.issue_generator(_message),
+                            message_from=self.message_from.user,
+                            timestamp=_message.date
+                        )
+                    return
+
+                await self.tickets.add_message_to_ticket(
+                    ticket_id=ticket_id,
+                    user_id=_message.from_user.id,
+                    message_id=msg.id,
+                    message_chat_id=msg.chat.id,
+                    username=_message.from_user.username,
+                    userfullname=_message.from_user.full_name,
+                    message=await self.issue_generator.issue_generator(_message),
+                    message_from=self.message_from.user,
+                    timestamp=_message.date
+                ); return
+            
         except Exception as e:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
+
+    async def _process_media_private_after_delay(self, media_group_id: str, username: str) -> Message:
+        await asyncio.sleep(0.1)
+
+        try:
+            group_data: MessagesStore = self.storage.temp.get(media_group_id)
+
+            if group_data and not group_data.processed:
+                messages = group_data.messages
+
+                if not messages:
+                    self.logger.warning(f"No messages in media group {media_group_id}")
+                    return
+                
+                group_data.processed = True
+                self.storage.tempstore(media_group_id, group_data)
+                
+                _message = messages[-1]
+                
+                for message in messages:
+                    message_text = (message.text or message.caption)
+                    if message_text:
+                        _message = message
+                        break
+
+                await self._send_to_private(message=_message, from_group=True, username=username)
+        
+        except Exception as e:
+            self.logger.error(f"Error processing media group {media_group_id}: {e}")
+
+
+    async def _handler_invalid_message(self, message: Message):
+        if message.text or message.caption in INVALID_MESSAGE_IN_USER.split(","):
+            initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
+            self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        return None
+    
+
+    async def handler_help_private(self):
+        ...
+
 
     async def handler_message_start(self, message: Message) -> Message:
         """
@@ -219,7 +427,7 @@ class HandlerMessages:
             The original message
         """
         try:
-            initial_message = self.messages.start(self.config.messages.custom_welcome_message)
+            initial_message = self.messages.start(self.template.messages.custom_welcome_message)
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
@@ -238,16 +446,69 @@ class HandlerMessages:
             message (Message): The message to handle
         """
         try:
+            
+            user_details = await self.tickets.get_user_details_by_id(message.from_user.id)
+            
             user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
-            ticket_open = UserTickets(**next((ticket for ticket in user_tickets), None))
+            ticket_open = next((ticket for ticket in user_tickets), None)
 
+            if not user_details:
+                await self.tickets.registration_user(
+                    id=message.from_user.id,
+                    is_bot=message.from_user.is_bot,
+                    first_name=message.from_user.first_name,
+                    username=message.from_user.username,
+                    last_name=message.from_user.last_name
+                )
+            else:
+                user_details = UserDetails(**user_details)
+                if user_details.username != message.from_user.username:
+                    self.tickets.update_user(
+                        id=message.from_user.id,
+                        first_name=message.from_user.first_name,
+                        username=message.from_user.username,
+                        last_name=message.from_user.last_name
+                    )
+            if any(inv in (message.text or "") or inv in (message.caption or "") for inv in INVALID_MESSAGE_IN_USER.split(",")):
+                initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+            elif any(bad in (message.text or "") or bad in (message.caption or "") for bad in BAD_WORDS.split(",")):
+                initial_message = self.messages.privcommon(self.template.messages.template_reply_badwords)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+        
             if not ticket_open:
+                
                 ticket_id = generate_id(message.from_user.id)
+                initial_message = self.messages.replay_message(
+                    self.template.messages.reply_message_private, 
+                    ticket_id=ticket_id
+                )
+
+                media_group_id = getattr(message, 'media_group_id', None)
+                
+                if media_group_id:
+                    await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
+                else:
+                    await self.telebot.reply_to(
+                        message=message,
+                        text=initial_message.text,
+                        parse_mode=initial_message.parse_mode
+                    )
+                    msg: Message = await self._send_to_group(ticket_id, message)
+                
                 await self.tickets.create_ticket(
                     ticket_id=ticket_id,
                     user_id=message.from_user.id,
-                    message_id=message.id,
-                    message_chat_id=message.chat.id,
+                    message_id=msg.id,
+                    message_chat_id=msg.chat.id,
                     username=message.from_user.username,
                     userfullname=message.from_user.full_name,
                     issue=await self.issue_generator.issue_generator(message),
@@ -256,55 +517,183 @@ class HandlerMessages:
                 await self.tickets.add_message_to_ticket(
                     ticket_id=ticket_id,
                     user_id=message.from_user.id,
-                    message_id=message.id,
-                    message_chat_id=message.chat.id,
+                    message_id=msg.id,
+                    message_chat_id=msg.chat.id,
                     username=message.from_user.username,
                     userfullname=message.from_user.full_name,
                     message=await self.issue_generator.issue_generator(message),
+                    message_from=self.message_from.user,
                     timestamp=message.date
                 )
-
+            
+            else:
+                self.logger.debug("ticket open")
+                ticket_open = UserTickets(**ticket_open)
+                ticket_id = ticket_open.ticket_id
                 initial_message = self.messages.replay_message(
-                    self.config.messages.reply_message_private, 
+                    self.template.messages.reply_additional_message_private, 
                     ticket_id=ticket_id
                 )
 
                 media_group_id = getattr(message, 'media_group_id', None)
                 
+
                 if media_group_id:
-                    await self._handle_media_group_message(message, media_group_id, ticket_id, initial_message)
+                    await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
                 else:
                     await self.telebot.reply_to(
                         message=message,
                         text=initial_message.text,
                         parse_mode=initial_message.parse_mode
                     )
-                    await self._send_to_group(ticket_id, message)
-            
-            else:
-                ticket_id = ticket_open.ticket_id
-                await self.tickets.add_message_to_ticket(
-                    ticket_id=ticket_id,
-                    user_id=message.from_user.id,
-                    message_id=message.id,
-                    message_chat_id=message.chat.id,
-                    username=message.from_user.username,
-                    userfullname=message.from_user.full_name,
-                    message=await self.issue_generator.issue_generator(message),
-                    timestamp=message.date
-                )
-
-                initial_message = self.messages.replay_message(
-                    self.config.messages.reply_message_private, 
-                    ticket_id=ticket_id
-                )
-                await self._send_to_group(ticket_id, message)
+                    msg: Message = await self._send_to_group(ticket_id, message)
+                    
+                    await self.tickets.add_message_to_ticket(
+                        ticket_id=ticket_id,
+                        user_id=message.from_user.id,
+                        message_id=msg.id,
+                        message_chat_id=msg.chat.id,
+                        username=message.from_user.username,
+                        userfullname=message.from_user.full_name,
+                        message=await self.issue_generator.issue_generator(message),
+                        message_from=self.message_from.user,
+                        timestamp=message.date
+                    )
 
         except Exception as e:
             self.logger.error(f"Error handling private message: {e}")
 
-    async def _handle_media_group_message(self, message: Message, media_group_id: str, 
+    
+    async def handler_message_group(self, message: Message):
+        
+        handlers_id = [
+            handler.user_id for handler in 
+            await self.tickets.get_all_handlers()
+        ]
+        
+        if message.reply_to_message:
+            if message.from_user.id in handlers_id:
+                messages = message.reply_to_message.text or message.reply_to_message.caption
+                matches = search(messages, MESSAGE_PATTERN)
+
+                if matches:
+                    ticket_id = matches.group(1)
+                    username = matches.group(3)
+                    closed_ticket = await self.tickets.get_closed_ticket_by_ticketid(ticket_id)
+
+                    if not closed_ticket:
+                        initial_message = self.messages.replay_message(
+                            self.template.messages.template_reply_bot_message,
+                            ticket_id=ticket_id
+                        )
+
+                        media_group_id = getattr(message, 'media_group_id', None)
+                        if media_group_id:
+                            await self._handle_media_group_message_group(
+                                message=message, 
+                                media_group_id=media_group_id, 
+                                ticket_id=ticket_id,
+                                username=username, 
+                                initial_message=initial_message
+                            ); return
+                        
+                        await self._send_to_private(message, True, username)
+                        await self.telebot.reply_to(
+                            message=message,
+                            text=initial_message.text,
+                            parse_mode=initial_message.parse_mode
+                        ); return
+                    
+                    initial_message = self.messages.reply_message_group(
+                        self.template.messages.template_reply_closed_ticket,
+                        username=closed_ticket.handler_username,
+                        datetime=closed_ticket.closed_at
+                    )
+                    await self.telebot.reply_to(
+                        message=message,
+                        text=initial_message.text,
+                        parse_mode=initial_message.parse_mode
+                    ); return
+                
+                initial_message = self.messages.groupcommon(
+                    self.template.messages.template_invalid_format_message
+                )
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+            
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_user_not_handler
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        return
+
+    async def _handle_media_group_message_private(self, message: Message, media_group_id: str, 
                                          ticket_id: int, initial_message: Messages) -> None:
+        """
+        Handle messages that are part of a media group.
+        
+        Args:
+            message: The message to handle
+            media_group_id: The ID of the media group
+            ticket_id: The ticket ID associated with the message
+            initial_message: The initial response message
+        """
+        
+        self.storage.tempstore("media_group_id", media_group_id)
+
+        
+        if media_group_id not in self.storage.temp.store:
+            
+            self.storage.tempstore(
+                media_group_id, 
+                MessagesStore(**arson(messages=[], ticket_id=ticket_id, processed=False))
+            )
+            if hasattr(message, 'photo') and message.photo:
+                self.storage.tempstore(f"photo_{media_group_id}", MediaStores(medias=[]))
+            elif hasattr(message, 'video') and message.video:
+                self.storage.tempstore(f"video_{media_group_id}", MediaStores(medias=[]))
+            elif hasattr(message, 'document') and message.document:
+                self.storage.tempstore(f"document_{media_group_id}", MediaStores(medias=[]))
+
+        
+        group_data: MessagesStore = self.storage.temp.get(media_group_id)
+        group_data.messages.append(message)
+        self.storage.tempstore(media_group_id, group_data)
+        
+        if hasattr(message, 'photo') and message.photo:
+            group_media: MediaStores = self.storage.temp.get(f"photo_{media_group_id}")
+            group_media.medias.append(InputMediaPhoto(media=message.photo[-1].file_id))
+            self.storage.tempstore(f"photo_{media_group_id}", group_media)
+        
+        elif hasattr(message, 'video') and message.video:
+            group_media: MediaStores = self.storage.temp.get(f"video_{media_group_id}")
+            group_media.medias.append(InputMediaVideo(media=message.video.file_id))
+            self.storage.tempstore(f"video_{media_group_id}", group_media)
+
+        elif hasattr(message, 'document') and message.document:
+            group_media: MediaStores = self.storage.temp.get(f"document_{media_group_id}")
+            group_media.medias.append(InputMediaDocument(media=message.document.file_id))
+            self.storage.tempstore(f"document_{media_group_id}", group_media)
+
+        if len(group_data.messages) == 1:
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,  
+                parse_mode=initial_message.parse_mode
+            )
+            
+        asyncio.create_task(self._process_media_groups_after_delay(media_group_id))
+
+
+    async def _handle_media_group_message_group(self, message: Message, media_group_id: str, 
+                                         ticket_id: int, username: str, initial_message: Messages) -> None:
         """
         Handle messages that are part of a media group.
         
@@ -322,23 +711,33 @@ class HandlerMessages:
                 media_group_id, 
                 MessagesStore(**arson(messages=[], ticket_id=ticket_id, processed=False))
             )
-            self.storage.tempstore(f"photo_{media_group_id}", MediaStores(medias=[]))
+            if hasattr(message, 'photo') and message.photo:
+                self.storage.tempstore(f"photo_{media_group_id}", MediaStores(medias=[]))
+            elif hasattr(message, 'video') and message.video:
+                self.storage.tempstore(f"video_{media_group_id}", MediaStores(medias=[]))
+            elif hasattr(message, 'document') and message.document:
+                self.storage.tempstore(f"document_{media_group_id}", MediaStores(medias=[]))
 
         
         group_data: MessagesStore = self.storage.temp.get(media_group_id)
         group_data.messages.append(message)
         self.storage.tempstore(media_group_id, group_data)
-
         
         if hasattr(message, 'photo') and message.photo:
             group_media: MediaStores = self.storage.temp.get(f"photo_{media_group_id}")
             group_media.medias.append(InputMediaPhoto(media=message.photo[-1].file_id))
             self.storage.tempstore(f"photo_{media_group_id}", group_media)
-        elif hasattr(message, 'document'):
-            
-            pass
-
         
+        elif hasattr(message, 'video') and message.video:
+            group_media: MediaStores = self.storage.temp.get(f"video_{media_group_id}")
+            group_media.medias.append(InputMediaVideo(media=message.video.file_id))
+            self.storage.tempstore(f"video_{media_group_id}", group_media)
+
+        elif hasattr(message, 'document') and message.document:
+            group_media: MediaStores = self.storage.temp.get(f"document_{media_group_id}")
+            group_media.medias.append(InputMediaDocument(media=message.document.file_id))
+            self.storage.tempstore(f"document_{media_group_id}", group_media)
+
         if len(group_data.messages) == 1:
             await self.telebot.reply_to(
                 message=message,
@@ -346,15 +745,19 @@ class HandlerMessages:
                 parse_mode=initial_message.parse_mode
             )
             
-        
-        asyncio.create_task(self._process_media_group_after_delay(media_group_id))
-    
+        asyncio.create_task(self._process_media_private_after_delay(media_group_id, username))
+
     async def handler_open_tickets(self, message: Message):
         opened_tickets = await self.tickets.get_opened_tickets()
-        print(opened_tickets)
+        admin_handler_id = (
+            self.config.telegram.admin_ids + 
+            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+        )
 
-        if message.from_user.id not in self.config.telegram.admin_ids:
-            initial_message: Messages = self.messages.open(self.config.messages.template_open_ticket_in_user)
+        if message.from_user.id not in admin_handler_id:
+            initial_message: Messages = self.messages.privcommon(
+                self.template.messages.template_warning_message
+            )
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
@@ -362,8 +765,8 @@ class HandlerMessages:
             )
         else:
             if not opened_tickets:
-                initial_message: Messages = self.messages.open_ticket_not_found(
-                    self.config.messages.template_open_ticket_not_found
+                initial_message: Messages = self.messages.groupcommon(
+                    self.template.messages.template_open_ticket_not_found
                 )
                 await self.telebot.reply_to(
                     message=message,
@@ -373,11 +776,188 @@ class HandlerMessages:
             else:
                 initial_message = self.messages.open(
                     opened_tickets=opened_tickets,
-                    template1=self.config.messages.template_open_ticket_in_admin,
-                    template2=self.config.messages.template_link_open_ticket
+                    template1=self.template.messages.template_open_ticket_in_admin,
+                    template2=self.template.messages.template_link_open_ticket
                 )
                 await self.telebot.reply_to(
                     message=message,
                     text=initial_message.text,
                     parse_mode=initial_message.parse_mode
                 )
+
+    async def handler_closed_tickets(self, message: Message):
+        admin_handler_id = (
+            self.config.telegram.admin_ids + 
+            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+        )
+
+        if message.from_user.id not in admin_handler_id:
+            initial_message: Messages = self.messages.groupcommon(self.template.messages.template_warning_message)
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        if not message.reply_to_message:
+            initial_message: Messages = self.messages.groupcommon(
+                self.template.messages.template_close_ticket_not_reply
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        messages = message.reply_to_message.text or message.reply_to_message.caption
+        matches = search(messages, MESSAGE_PATTERN)
+        
+        if matches and message.reply_to_message.from_user.id in self.config.telegram.admin_ids:
+            ticket_id = matches.group(1)
+            username = matches.group(3)
+
+            user_id = await self.tickets.get_userid_by_username(username)
+
+            timestamp = epodate(message.date)
+            await self.tickets.close_ticket(
+                ticket_id=ticket_id,
+                handler_id=message.from_user.id,
+                handler_username=message.from_user.username,
+                timezone=self.config.timezone
+            )
+
+            initial_message = self.messages.replay_message(
+                text=self.template.messages.template_closed_ticket,
+                ticket_id=ticket_id,
+                timestamp=timestamp
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
+            await self._send_closed_private(
+                user_id.get("id"), 
+                message, 
+                ticket_id=ticket_id, 
+                timestamp=timestamp
+            )
+        else:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_invalid_format_message
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
+    
+
+    async def handler_conversation(self, message: Message):
+        if not message.reply_to_message:
+            initial_message: Messages = self.messages.groupcommon(
+                self.template.messages.template_close_ticket_not_reply
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        messages = message.reply_to_message.text or message.reply_to_message.caption
+        matches = search(messages, MESSAGE_PATTERN)
+        
+        if matches and message.reply_to_message.from_user.id in self.config.telegram.admin_ids:
+            ticket_id = matches.group(1)
+            # username = matches.group(3)
+            
+            # user_id = await self.tickets.get_userid_by_username(username)
+            # 
+            # userishandler = await self.tickets.user_is_handler(user_id.get("id"))
+
+            conversation = await self.tickets.get_ticket_messages(
+                ticket_id=ticket_id,
+                user_id=message.from_user.id,
+                is_handler=True,
+            )
+
+            if not conversation:
+                initial_message = self.messages.groupcommon(
+                    self.template.messages.template_not_conversation
+                )
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+            
+            initial_message = self.messages.conversation_message(
+                template=self.template.messages.template_conversation,
+                content_template=self.template.messages.template_content_conversation,
+                contents=conversation,
+                ticket_id=ticket_id
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
+    
+
+    async def handler_history(self, message: Message):
+        ticket_handling = await self.tickets.get_user_tickets_history(message.from_user.id)
+        if not ticket_handling:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_empty_history
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        initial_message = self.messages.history_message(
+            template=self.template.messages.template_history,
+            content_template=self.template.messages.template_list_history,
+            contents=ticket_handling
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        ); return
+    
+
+    async def handler_regist_user_handler(self, message: Message):
+        if message.from_user.id not in self.config.telegram.admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_admin_only
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        if not message.reply_to_message:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_must_reply_to_message
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
+        if not message_reply_text:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_reply_message_text_none
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+            
