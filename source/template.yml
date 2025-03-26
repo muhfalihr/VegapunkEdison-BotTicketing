@@ -130,3 +130,8 @@ messages:
   
   template_reply_message_text_none: |
     ⚠️ *PERHATIKAN*: Anda harus membalas semua pesan dari user yang berupa text.
+  
+  template_length_too_long_message: |
+    🚫 Mohon maaf, Pesan anda terlalu panjang.
+    ✏️ Tolong kirim pesan yang lebih singkat.
+    🙏 Terima kasih atas pengertian Anda.

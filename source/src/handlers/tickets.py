@@ -117,6 +117,22 @@ class HandlerTickets(BtAioMysql):
             return
     
     async def registration_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str):
+        """
+        Registers a new user in the database.
+
+        Args:
+            id (int): The unique identifier for the user.
+            is_bot (bool): Whether the user is a bot.
+            first_name (str): The first name of the user.
+            username (str): The username of the user.
+            last_name (str): The last name of the user.
+
+        Returns:
+            bool: True if the user was successfully registered, False otherwise.
+
+        Raises:
+            Exception: If any error occurs during the database operation.
+        """
         try:
             affected_rows = await self.execute(
                 ADDED_USER_DETAILS, (id, is_bot, first_name, username, last_name,)
@@ -128,6 +144,21 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def update_user(self, id: int, first_name: str, username: str, last_name: str):
+        """
+        Updates the details of an existing user in the database.
+
+        Args:
+            id (int): The unique identifier for the user.
+            first_name (str): The updated first name of the user.
+            username (str): The updated username of the user.
+            last_name (str): The updated last name of the user.
+
+        Returns:
+            bool: True if the user was successfully updated, False otherwise.
+
+        Raises:
+            Exception: If any error occurs during the database operation.
+        """
         try:
             affected_rows = await self.execute(
                 UPDATE_USER_DETAILS, (id, first_name, username, last_name,)
@@ -139,6 +170,18 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def get_userid_by_username(self, username: str):
+        """
+        Retrieves a user's ID based on their username.
+
+        Args:
+            username (str): The username of the user.
+
+        Returns:
+            Any: The user ID if found, or None if no user is found.
+
+        Raises:
+            Exception: If any error occurs during the database operation.
+        """
         try:
             result = await self.fetch_one(GET_USER_BY_USERNAME, (username,))
             return result
@@ -279,6 +322,18 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def get_user_tickets_history(self, user_id: int) -> List[HistoryHandlerTickets]:
+        """
+        Retrieve the ticket history for a given user.
+
+        Args:
+            user_id (int): The ID of the user whose ticket history is to be retrieved.
+
+        Returns:
+            List[HistoryHandlerTickets]: A list of HistoryHandlerTickets objects representing the user's ticket history.
+
+        Raises:
+            Exception: If an error occurs while fetching the ticket history.
+        """
         try:
             result = await self.fetch_all(GET_HISTORY_HANDLER_TICKETS, (user_id,))
             tickets = [
@@ -292,6 +347,18 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def get_user_details_by_id(self, id: int):
+        """
+        Retrieve user details by their ID.
+
+        Args:
+            id (int): The ID of the user whose details are to be retrieved.
+
+        Returns:
+            dict: A dictionary containing the user's details.
+
+        Raises:
+            Exception: If an error occurs while fetching the user details.
+        """
         try:
             result = await self.fetch_one(GET_USER_DETAILS_BY_ID, (id,))
             return result
@@ -324,9 +391,21 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def get_closed_ticket_by_ticketid(self, id: str):
+        """
+        Retrieve a closed ticket by its ticket ID.
+
+        Args:
+            id (str): The ID of the closed ticket to be retrieved.
+
+        Returns:
+            ClosedTicket: An instance of the ClosedTicket object if found, otherwise None.
+
+        Raises:
+            Exception: If an error occurs while fetching the closed ticket.
+        """
         try:
             result = await self.fetch_one(GET_CLOSED_TICKETS_BY_TICKETID, (id,))
-            return ClosedTicket(**result)
+            return ClosedTicket(**result) if result else result
         except Exception as e:
             self.logger.error(f"Failed to retrieve ticket {id}: {str(e)}")
             raise
@@ -384,7 +463,20 @@ class HandlerTickets(BtAioMysql):
             ticket_id: str, 
             user_id: Optional[int] = None, 
             is_handler: bool = False):
+        """
+        Retrieve messages associated with a given ticket.
 
+        Parameters:
+        - ticket_id (str): The unique identifier of the ticket.
+        - user_id (Optional[int], optional): The ID of the user requesting the messages. Defaults to None.
+        - is_handler (bool, optional): Indicates whether the user is a handler. Defaults to False.
+
+        Returns:
+        - List[TicketMessages]: A list of ticket messages. Returns an empty list if no messages are found or the user is unauthorized.
+
+        Raises:
+        - Exception: If an error occurs while retrieving the messages.
+        """
         try:
             if user_id and not is_handler:
                 result = await self.fetch_one(
@@ -408,6 +500,18 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def user_is_handler(self, user_id: str):
+        """
+        Check if a user is a handler.
+
+        Parameters:
+        - user_id (str): The unique identifier of the user.
+
+        Returns:
+        - bool: True if the user is a handler, False otherwise.
+
+        Raises:
+        - Exception: If an error occurs while verifying the handler status.
+        """
         try:
             result = await self.fetch_one(CHECK_USER_IS_HANDLER, (user_id,))
             return result.__getitem__("COUNT(*)") > 0

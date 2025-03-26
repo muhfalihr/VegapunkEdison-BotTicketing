@@ -34,6 +34,7 @@ class MessagesTemplate:
     template_admin_only: str
     template_must_reply_to_message: str
     template_reply_message_text_none: str
+    template_length_too_long_message: str
 
 @dataclass
 class Template:

@@ -14,13 +14,6 @@ class SetupMessage:
         """Create message for telegram bot ticketing"""
         return Messages(**arson(text=content, parse_mode=parse_mode))
     
-
-    # @staticmethod
-    # def _check_message(text: str):
-    #     if any(word in text for word in URGENT_WORDS):
-    #         ...
-
-    
     def privcommon(self, content: str) -> Messages:
         return self._create_message(content, "Markdown", "private")
     
@@ -47,9 +40,6 @@ class SetupMessage:
         
         content = template1.format(list_open_tickets=opened_tickets_messages)
         return self._create_message(content, "Markdown", "group")
-    
-    # def open_ticket_not_found(self, content: str) -> Messages:
-    #     return self._create_message(content, "Markdown", "group")
 
     def replay_message(self, text: str, **kwargs) -> Messages:
         content: str = text.format(**kwargs)
@@ -94,9 +84,3 @@ class SetupMessage:
         
         full_content = template.format(history_handling_tickets=histories)
         return self._create_message(full_content, "Markdown", "group")
-
-    # def reply_invalid_message(self, content: str) -> Messages:
-    #     return self._create_message(content, "Markdown", "private")
-    
-    # def reply_badwords_message(self, content: str) -> Messages:
-    #     return self._create_message(content, "Markdown", "private")

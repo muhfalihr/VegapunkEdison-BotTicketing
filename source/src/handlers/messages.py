@@ -130,9 +130,6 @@ class HandlerMessages:
                 medias[0].caption = initial_message.text
                 medias[0].parse_mode = initial_message.parse_mode
             
-            
-            
-
             msg: Message = await self.telebot.send_media_group(
                 chat_id=chat_id,
                 media=medias
@@ -247,7 +244,18 @@ class HandlerMessages:
             self.logger.error(f"Error sending to group: {e}")
     
 
-    async def _send_to_private(self, message: Message, from_group: bool = False, username: str = None):
+    async def _send_to_private(self, message: Message, from_group: bool = False, username: str = None) -> Message:
+        """
+        Send a message to a private chat.
+
+        Args:
+            message (Message): The message object to send.
+            from_group (bool, optional): Whether the message is from a group. Defaults to False.
+            username (str, optional): The target username. Defaults to None.
+
+        Returns:
+            Message: The sent message object.
+        """
         message_text = self._get_formatted_message_text(message)
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_ticket_message_admin,
@@ -295,7 +303,18 @@ class HandlerMessages:
         return msg
     
 
-    async def _send_closed_private(self, chat_id: str, message: Message, **kwargs):
+    async def _send_closed_private(self, chat_id: str, message: Message, **kwargs) -> None:
+        """
+        Send a closed ticket message to a private chat.
+
+        Args:
+            chat_id (str): The ID of the chat to send the message to.
+            message (Message): The original message object.
+            **kwargs: Additional arguments to format the message template.
+
+        Returns:
+            None
+        """
         initial_message = self.messages.replay_message(
             self.template.messages.template_closed_ticket,
             **kwargs
@@ -336,11 +355,8 @@ class HandlerMessages:
                         _message = message
                         break
 
-                
-                
                 msg: Union[Message,List[Message]] = await self._send_to_group(ticket_id=ticket_id, message=_message)
                 
-
                 if isinstance(msg, list):
                     for m in msg:
                         await self.tickets.add_message_to_ticket(
@@ -372,6 +388,19 @@ class HandlerMessages:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
 
     async def _process_media_private_after_delay(self, media_group_id: str, username: str) -> Message:
+        """
+        Process media group and send the message to a private chat after a delay.
+
+        Args:
+            media_group_id (str): The unique identifier for the media group.
+            username (str): The target username to send the message to.
+
+        Returns:
+            Message: The sent message object.
+
+        Raises:
+            Exception: If there is an error during message processing or sending.
+        """
         await asyncio.sleep(0.1)
 
         try:
@@ -402,6 +431,15 @@ class HandlerMessages:
 
 
     async def _handler_invalid_message(self, message: Message):
+        """
+        Handle invalid messages by checking against a list of invalid message contents.
+
+        Args:
+            message (Message): The incoming message to validate.
+
+        Returns:
+            None
+        """
         if message.text or message.caption in INVALID_MESSAGE_IN_USER.split(","):
             initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
             self.telebot.reply_to(
@@ -409,7 +447,7 @@ class HandlerMessages:
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
             ); return
-        return None
+        return
     
 
     async def handler_help_private(self):
@@ -446,7 +484,17 @@ class HandlerMessages:
             message (Message): The message to handle
         """
         try:
-            
+            length_message = len((message.text or message.caption))
+            if length_message > 4000:
+                initial_message = self.messages.privcommon(
+                    self.template.messages.template_length_too_long_message
+                )
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+
             user_details = await self.tickets.get_user_details_by_id(message.from_user.id)
             
             user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
@@ -524,7 +572,7 @@ class HandlerMessages:
                     message=await self.issue_generator.issue_generator(message),
                     message_from=self.message_from.user,
                     timestamp=message.date
-                )
+                ); return
             
             else:
                 self.logger.debug("ticket open")
@@ -558,18 +606,34 @@ class HandlerMessages:
                         message=await self.issue_generator.issue_generator(message),
                         message_from=self.message_from.user,
                         timestamp=message.date
-                    )
+                    ); return
 
         except Exception as e:
             self.logger.error(f"Error handling private message: {e}")
 
     
     async def handler_message_group(self, message: Message):
+        """
+        Handle messages sent in group chats.
         
+        Args:
+            message (Message): The message to handle
+        """
         handlers_id = [
             handler.user_id for handler in 
             await self.tickets.get_all_handlers()
         ]
+
+        length_message = len((message.text or message.caption))
+        if length_message > 4000:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_length_too_long_message
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
         
         if message.reply_to_message:
             if message.from_user.id in handlers_id:
@@ -748,6 +812,19 @@ class HandlerMessages:
         asyncio.create_task(self._process_media_private_after_delay(media_group_id, username))
 
     async def handler_open_tickets(self, message: Message):
+        """
+        Handles the command to display open tickets.
+
+        This method retrieves all open tickets and checks if the user is an admin or a handler.
+        If the user is not authorized, a warning message is sent. If no open tickets are found,
+        an appropriate message is sent. Otherwise, a list of open tickets is displayed.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
         opened_tickets = await self.tickets.get_opened_tickets()
         admin_handler_id = (
             self.config.telegram.admin_ids + 
@@ -762,7 +839,7 @@ class HandlerMessages:
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
-            )
+            ); return
         else:
             if not opened_tickets:
                 initial_message: Messages = self.messages.groupcommon(
@@ -772,7 +849,7 @@ class HandlerMessages:
                     message=message,
                     text=initial_message.text,
                     parse_mode=initial_message.parse_mode
-                )
+                ); return
             else:
                 initial_message = self.messages.open(
                     opened_tickets=opened_tickets,
@@ -783,9 +860,18 @@ class HandlerMessages:
                     message=message,
                     text=initial_message.text,
                     parse_mode=initial_message.parse_mode
-                )
+                ); return
 
     async def handler_closed_tickets(self, message: Message):
+        """
+        Handles the command to closed tickets.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
         admin_handler_id = (
             self.config.telegram.admin_ids + 
             [handler.user_id for handler in await self.tickets.get_all_handlers()]
@@ -854,6 +940,15 @@ class HandlerMessages:
     
 
     async def handler_conversation(self, message: Message):
+        """
+        Handler the command conversation tickets.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
         if not message.reply_to_message:
             initial_message: Messages = self.messages.groupcommon(
                 self.template.messages.template_close_ticket_not_reply
@@ -869,11 +964,6 @@ class HandlerMessages:
         
         if matches and message.reply_to_message.from_user.id in self.config.telegram.admin_ids:
             ticket_id = matches.group(1)
-            # username = matches.group(3)
-            
-            # user_id = await self.tickets.get_userid_by_username(username)
-            # 
-            # userishandler = await self.tickets.user_is_handler(user_id.get("id"))
 
             conversation = await self.tickets.get_ticket_messages(
                 ticket_id=ticket_id,
@@ -905,6 +995,15 @@ class HandlerMessages:
     
 
     async def handler_history(self, message: Message):
+        """
+        Handler the command history tickets.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
         ticket_handling = await self.tickets.get_user_tickets_history(message.from_user.id)
         if not ticket_handling:
             initial_message = self.messages.groupcommon(
@@ -929,6 +1028,15 @@ class HandlerMessages:
     
 
     async def handler_regist_user_handler(self, message: Message):
+        """
+        Handler the command regist user handler.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
         if message.from_user.id not in self.config.telegram.admin_ids:
             initial_message = self.messages.groupcommon(
                 self.template.messages.template_admin_only
