@@ -91,7 +91,8 @@ class SetupMessage:
         full_content = template.format(history_handling_tickets=histories)
         return self._create_message(full_content, "Markdown", "group")
 
-    def handlers_message(self, template: str, content_template: str, contents: List[Handlers], func: function):
+    def handlers_message(self, template: str, content_template: str, contents: List[Handlers], **kwargs):
+        func = kwargs.get("func")
         handlers = "\n"
         space = (' ' * 3)
         
