@@ -92,8 +92,8 @@ messages:
         ↳ ⏱️ {relative_time}  |  🔗 [View Message]({link_message})
 
   template_open_ticket_not_found: |
-    🚫 *ACTION DENIED*: Tidak ada 🎫 tiket yang tersedia.
-    Coba lagi nanti atau periksa antrian tiket secara berkala.
+    ❌ Tidak ada 🎫 tiket yang tersedia.
+    🔍 Coba lagi nanti atau periksa antrian tiket secara berkala.
 
   template_close_ticket_not_reply: |
     ⚠️ *PERHATIKAN*: Anda wajib membalas pesan yang mencantumkan Ticket ID untuk menutup tiket.
