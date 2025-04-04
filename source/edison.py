@@ -110,7 +110,6 @@ class BotTicketing(HandlerMessages):
 
 
     async def start_polling(self):
-        await self._ids_user_admin_handler()
         async with ClientSession() as session:
             asyncio_helper.session = session
             try:
@@ -118,6 +117,7 @@ class BotTicketing(HandlerMessages):
                     database=self.config.database.database,
                     list_tables=self.config.database.tables
                 )
+                await self._ids_user_admin_handler()
                 
                 await self.telebot.delete_webhook(drop_pending_updates=True)
                 
