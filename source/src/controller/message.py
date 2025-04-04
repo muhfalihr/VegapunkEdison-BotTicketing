@@ -19,7 +19,8 @@ class SetupMessage:
     def groupcommon(self, content: str) -> Messages:
         return self._create_message(content, "Markdown", "group")
     
-    def open(self, opened_tickets: List[OpenedTickets], template1: str, template2: str) -> Messages:
+    def open(self, opened_tickets: List[OpenedTickets], template1: str, template2: str, **kwargs) -> Messages:
+        func = kwargs.get("func")
         opened_tickets_messages = "\n"
         
         for ticket in opened_tickets:
@@ -29,10 +30,13 @@ class SetupMessage:
             link_message = f"https://t.me/c/{chat_id}/{ticket.message_id}"
             relative_time = reltime(ticket.created_at)
             
+            username = func(ticket.username)
+            userfullname = func(ticket.userfullname)
+
             opened_tickets_messages += "\n" + template2.format(
                 ticket_id=ticket.ticket_id,
-                user_full_name=ticket.userfullname,
-                username=ticket.username,
+                user_full_name=userfullname,
+                username=username,
                 relative_time=relative_time,
                 link_message=link_message
             )

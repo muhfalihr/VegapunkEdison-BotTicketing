@@ -872,7 +872,8 @@ class HandlerMessages:
             initial_message = self.messages.open(
                 opened_tickets=opened_tickets,
                 template1=self.template.messages.template_open_ticket_in_admin,
-                template2=self.template.messages.template_link_open_ticket
+                template2=self.template.messages.template_link_open_ticket,
+                func=self.markdown.escape_undescores
             )
             await self.telebot.reply_to(
                 message=message,
@@ -1018,7 +1019,7 @@ class HandlerMessages:
             content_template=self.template.messages.template_content_conversation,
             contents=conversation,
             ticket_id=ticket_id,
-            func=self.markdown.escape_markdown
+            func=self.markdown.escape_undescores
         )
         await self.telebot.reply_to(
             message=message,
@@ -1110,7 +1111,6 @@ class HandlerMessages:
         Returns:
             None
         """
-        print(message)
         if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
             initial_message = self.messages.groupcommon(
                 self.template.messages.template_not_reply_bot
@@ -1156,6 +1156,10 @@ class HandlerMessages:
             user_id=message.reply_to_message.from_user.id,
             username=message.reply_to_message.from_user.username
         )
+
+        # Refresh Get User Handler
+        await self._ids_user_admin_handler()
+
         username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
             self.template.messages.template_added_new_handler,
@@ -1255,6 +1259,10 @@ class HandlerMessages:
         await self.tickets.deregistration_handler(
             user_id=message.reply_to_message.from_user.id
         )
+        
+        # Refresh Get User Handler
+        await self._ids_user_admin_handler()
+        
         username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
             self.template.messages.template_delete_handler,
