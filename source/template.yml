@@ -159,3 +159,6 @@ messages:
   
   template_handlers_content: |
     {space}• 🪪 @{username} | 🏷 {user_id}
+  
+  template_empty_handlers: |
+    📂 Belum ada User Handler yang tersedia.

@@ -42,6 +42,7 @@ class MessagesTemplate:
     template_delete_handler: str
     template_handlers: str
     template_handlers_content: str
+    template_empty_handlers: str
     
 @dataclass
 class Template:

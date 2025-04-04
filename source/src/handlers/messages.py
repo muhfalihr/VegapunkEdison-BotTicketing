@@ -1193,6 +1193,16 @@ class HandlerMessages:
             ); return
         
         handlers = await self.tickets.get_all_handlers()
+        if not handlers:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_empty_handlers
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+
         initial_message = self.messages.handlers_message(
             template=self.template.messages.template_handlers,
             content_template=self.template.messages.template_handlers_content,
