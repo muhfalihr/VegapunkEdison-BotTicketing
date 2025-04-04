@@ -57,8 +57,6 @@ class Handlers:
     username: str
     added_at: Optional[Union[str, datetime]]
     is_active: int
-    total_tickets_handled: int
-    last_activity: Optional[datetime] = None
 
 
 @dataclass
