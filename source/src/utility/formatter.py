@@ -1,3 +1,5 @@
+import re
+
 from typing import List, Dict, Union, Optional
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -22,6 +24,7 @@ class FormatType(Enum):
     IMAGE = auto()
     LIST = auto()
     QUOTE = auto()
+    BLOCKQUOTE = auto()
     TABLE = auto()
 
 class MarkdownFormatter:
@@ -33,7 +36,7 @@ class MarkdownFormatter:
             
             # Text styling
             "bold": {"start": "**", "end": "**", "type": FormatType.BOLD},
-            "italic": {"start": "*", "end": "*", "type": FormatType.ITALIC},
+            "italic": {"start": "_", "end": "_", "type": FormatType.ITALIC},
             "strikethrough": {"start": "~~", "end": "~~", "type": FormatType.STRIKETHROUGH},
             
             # Headers
@@ -53,7 +56,7 @@ class MarkdownFormatter:
             "numbered": {"start": "1. ", "end": "\n", "type": FormatType.LIST},
             
             # Quotes and horizontal rules
-            "blockquote": {"start": "> ", "end": "\n", "type": FormatType.QUOTE},
+            "blockquote": {"start": "> ", "end": "\n", "type": FormatType.BLOCKQUOTE},
             "hr": {"start": "---", "end": "\n", "type": FormatType.QUOTE},
             
             # Tables
@@ -135,3 +138,10 @@ class MarkdownFormatter:
         self._escape_underscores(text_list, format_ranges)
         
         return ''.join(text_list)
+    
+    def escape_markdown(self, text: str):
+        escape_chars = r"\`*_{}[]()#+-.!|>"
+        return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+    
+    def escape_markdownv2(self, text: str):
+        return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)

@@ -2,6 +2,7 @@ import asyncio
 
 from loguru import logger
 from typing import List, Dict, Any, Optional, Union
+from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message, LinkPreviewOptions
 from telebot.types import (
     InputMedia, 
@@ -11,7 +12,6 @@ from telebot.types import (
     InputMediaPhoto, 
     InputMediaVideo
 )
-from telebot.async_telebot import AsyncTeleBot
 
 from src.utility.const import (
     INVALID_MESSAGE_IN_USER, 
@@ -53,6 +53,14 @@ class HandlerMessages:
         self.markdown: Optional[MarkdownFormatter] = None
         self.issue_generator: Optional[IssueGenerator] = None
         self.message_from: Optional[MessageFrom] = None
+        self.handler_admin_ids: Optional[List[str]] = []
+
+
+    async def _ids_user_admin_handler(self):
+        self.handler_admin_ids = (
+            self.config.telegram.admin_ids + 
+            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+        )
 
     async def _send_message(self, chat_id: Union[int, str], message_obj: Messages, 
                            message_type: str = "text", media_id: str = None) -> Message:
@@ -70,8 +78,7 @@ class HandlerMessages:
                 msg: Message = await self.telebot.send_message(
                     chat_id=chat_id, 
                     text=message_obj.text, 
-                    parse_mode=message_obj.parse_mode,
-                    link_preview_options=LinkPreviewOptions(is_disabled=False, show_above_text=True)
+                    parse_mode=message_obj.parse_mode
                 )
             elif message_type == "document":
                 msg: Message = await self.telebot.send_document(
@@ -189,12 +196,15 @@ class HandlerMessages:
         try:
             timestamp = epodate(message.date)
             message_text = self._get_formatted_message_text(message)
+
+            full_name = self.markdown.escape_undescores(message.from_user.full_name)
+            username = self.markdown.escape_undescores(message.from_user.username)
             
             initial_message = self.messages.replay_message(
                 self.template.messages.template_ticket_message, 
                 ticket_id=ticket_id,
-                user_name=message.from_user.full_name,
-                username=message.from_user.username,
+                user_name=full_name,
+                username=username,
                 timestamp=timestamp,
                 message=message_text,
             )
@@ -232,7 +242,6 @@ class HandlerMessages:
                             initial_message=initial_message
                         )
                         
-                        
             else:
                 msg: Message = await self._sender_message_reply(
                     chat_id=self.config.telegram.chat_id, 
@@ -257,10 +266,14 @@ class HandlerMessages:
             Message: The sent message object.
         """
         message_text = self._get_formatted_message_text(message)
+        
+        full_name = self.markdown.escape_undescores(message.from_user.full_name)
+        username_ = self.markdown.escape_undescores(message.from_user.username)
+        
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_ticket_message_admin,
-            user_name=message.from_user.full_name,
-            username=message.from_user.username,
+            user_name=full_name,
+            username=username_,
             message=message_text
         )
         message_from_user_id = message.from_user.id
@@ -342,7 +355,6 @@ class HandlerMessages:
                 if not messages:
                     self.logger.warning(f"No messages in media group {media_group_id}")
                     return
-
                 
                 group_data.processed = True
                 self.storage.tempstore(media_group_id, group_data)
@@ -369,8 +381,7 @@ class HandlerMessages:
                             message=await self.issue_generator.issue_generator(_message),
                             message_from=self.message_from.user,
                             timestamp=_message.date
-                        )
-                    return
+                        ); return
 
                 await self.tickets.add_message_to_ticket(
                     ticket_id=ticket_id,
@@ -450,6 +461,23 @@ class HandlerMessages:
         return
     
 
+    async def _send_error_response(self, message: Message, template, **kwargs):
+        """
+        Helper method to send error responses and reduce code duplication.
+        
+        Args:
+            message (Message): Original message
+            template: Message template
+            **kwargs: Additional formatting arguments
+        """
+        initial_message = self.messages.groupcommon(template, **kwargs)
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        )
+    
+
     async def handler_help_private(self):
         ...
 
@@ -465,7 +493,7 @@ class HandlerMessages:
             The original message
         """
         try:
-            initial_message = self.messages.start(self.template.messages.custom_welcome_message)
+            initial_message = self.messages.privcommon(self.template.messages.custom_welcome_message)
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
@@ -478,14 +506,15 @@ class HandlerMessages:
 
     async def handler_message_private(self, message: Message) -> None:
         """
-        Handle messages sent in private chats.
+        Handle messages sent in private chats with improved efficiency.
         
         Args:
             message (Message): The message to handle
         """
         try:
-            length_message = len((message.text or message.caption))
-            if length_message > 4000:
+            message_content = message.text or message.caption or ""
+            
+            if len(message_content) > 4000:
                 initial_message = self.messages.privcommon(
                     self.template.messages.template_length_too_long_message
                 )
@@ -495,11 +524,26 @@ class HandlerMessages:
                     parse_mode=initial_message.parse_mode
                 ); return
 
-            user_details = await self.tickets.get_user_details_by_id(message.from_user.id)
+            invalid_words = set(INVALID_MESSAGE_IN_USER.split(","))
+            bad_words = set(BAD_WORDS.split(","))
             
-            user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
-            ticket_open = next((ticket for ticket in user_tickets), None)
+            if any(word in message_content for word in invalid_words):
+                initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
 
+            if any(word in message_content for word in bad_words):
+                initial_message = self.messages.privcommon(self.template.messages.template_reply_badwords)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                ); return
+
+            user_details = await self.tickets.get_user_details_by_id(message.from_user.id)
             if not user_details:
                 await self.tickets.registration_user(
                     id=message.from_user.id,
@@ -511,29 +555,17 @@ class HandlerMessages:
             else:
                 user_details = UserDetails(**user_details)
                 if user_details.username != message.from_user.username:
-                    self.tickets.update_user(
+                    await self.tickets.update_user(
                         id=message.from_user.id,
                         first_name=message.from_user.first_name,
                         username=message.from_user.username,
                         last_name=message.from_user.last_name
                     )
-            if any(inv in (message.text or "") or inv in (message.caption or "") for inv in INVALID_MESSAGE_IN_USER.split(",")):
-                initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
-                await self.telebot.reply_to(
-                    message=message,
-                    text=initial_message.text,
-                    parse_mode=initial_message.parse_mode
-                ); return
-            elif any(bad in (message.text or "") or bad in (message.caption or "") for bad in BAD_WORDS.split(",")):
-                initial_message = self.messages.privcommon(self.template.messages.template_reply_badwords)
-                await self.telebot.reply_to(
-                    message=message,
-                    text=initial_message.text,
-                    parse_mode=initial_message.parse_mode
-                ); return
-        
+
+            user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
+            ticket_open = next(iter(user_tickets), None)
+
             if not ticket_open:
-                
                 ticket_id = generate_id(message.from_user.id)
                 initial_message = self.messages.replay_message(
                     self.template.messages.reply_message_private, 
@@ -541,7 +573,6 @@ class HandlerMessages:
                 )
 
                 media_group_id = getattr(message, 'media_group_id', None)
-                
                 if media_group_id:
                     await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
                 else:
@@ -552,6 +583,7 @@ class HandlerMessages:
                     )
                     msg: Message = await self._send_to_group(ticket_id, message)
                 
+                issue = await self.issue_generator.issue_generator(message)
                 await self.tickets.create_ticket(
                     ticket_id=ticket_id,
                     user_id=message.from_user.id,
@@ -559,7 +591,7 @@ class HandlerMessages:
                     message_chat_id=msg.chat.id,
                     username=message.from_user.username,
                     userfullname=message.from_user.full_name,
-                    issue=await self.issue_generator.issue_generator(message),
+                    issue=issue,
                     timestamp=message.date
                 )
                 await self.tickets.add_message_to_ticket(
@@ -569,13 +601,12 @@ class HandlerMessages:
                     message_chat_id=msg.chat.id,
                     username=message.from_user.username,
                     userfullname=message.from_user.full_name,
-                    message=await self.issue_generator.issue_generator(message),
+                    message=issue,
                     message_from=self.message_from.user,
                     timestamp=message.date
-                ); return
-            
+                )
+
             else:
-                self.logger.debug("ticket open")
                 ticket_open = UserTickets(**ticket_open)
                 ticket_id = ticket_open.ticket_id
                 initial_message = self.messages.replay_message(
@@ -584,8 +615,6 @@ class HandlerMessages:
                 )
 
                 media_group_id = getattr(message, 'media_group_id', None)
-                
-
                 if media_group_id:
                     await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
                 else:
@@ -596,6 +625,7 @@ class HandlerMessages:
                     )
                     msg: Message = await self._send_to_group(ticket_id, message)
                     
+                    issue = await self.issue_generator.issue_generator(message)
                     await self.tickets.add_message_to_ticket(
                         ticket_id=ticket_id,
                         user_id=message.from_user.id,
@@ -603,14 +633,13 @@ class HandlerMessages:
                         message_chat_id=msg.chat.id,
                         username=message.from_user.username,
                         userfullname=message.from_user.full_name,
-                        message=await self.issue_generator.issue_generator(message),
+                        message=issue,
                         message_from=self.message_from.user,
                         timestamp=message.date
-                    ); return
+                    )
 
         except Exception as e:
             self.logger.error(f"Error handling private message: {e}")
-
     
     async def handler_message_group(self, message: Message):
         """
@@ -619,85 +648,88 @@ class HandlerMessages:
         Args:
             message (Message): The message to handle
         """
-        handlers_id = [
-            handler.user_id for handler in 
-            await self.tickets.get_all_handlers()
-        ]
+        try:
+            text = (message.text or message.caption)
+            if len(text) > 4000:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_length_too_long_message
+                )
+            
+            if not message.reply_to_message:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_must_reply_ticket
+                )
+            
+            if message.from_user.id not in self.handler_admin_ids:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_user_not_handler
+                )
 
-        length_message = len((message.text or message.caption))
-        if length_message > 4000:
-            initial_message = self.messages.groupcommon(
-                self.template.messages.template_length_too_long_message
-            )
-            await self.telebot.reply_to(
-                message=message,
-                text=initial_message.text,
-                parse_mode=initial_message.parse_mode
-            ); return
+            reply_text = (message.reply_to_message.text or message.reply_to_message.caption)
+            matches = search(reply_text, MESSAGE_PATTERN)
+            if not matches:
+                return await self._send_error_response(
+                    message=message, 
+                    template=self.template.messages.template_invalid_format_message
+                )
+
+            ticket_id = matches.group(1)
+            username = matches.group(3)
         
-        if message.reply_to_message:
-            if message.from_user.id in handlers_id:
-                messages = message.reply_to_message.text or message.reply_to_message.caption
-                matches = search(messages, MESSAGE_PATTERN)
-
-                if matches:
-                    ticket_id = matches.group(1)
-                    username = matches.group(3)
-                    closed_ticket = await self.tickets.get_closed_ticket_by_ticketid(ticket_id)
-
-                    if not closed_ticket:
-                        initial_message = self.messages.replay_message(
-                            self.template.messages.template_reply_bot_message,
-                            ticket_id=ticket_id
-                        )
-
-                        media_group_id = getattr(message, 'media_group_id', None)
-                        if media_group_id:
-                            await self._handle_media_group_message_group(
-                                message=message, 
-                                media_group_id=media_group_id, 
-                                ticket_id=ticket_id,
-                                username=username, 
-                                initial_message=initial_message
-                            ); return
-                        
-                        await self._send_to_private(message, True, username)
-                        await self.telebot.reply_to(
-                            message=message,
-                            text=initial_message.text,
-                            parse_mode=initial_message.parse_mode
-                        ); return
-                    
-                    initial_message = self.messages.reply_message_group(
-                        self.template.messages.template_reply_closed_ticket,
-                        username=closed_ticket.handler_username,
-                        datetime=closed_ticket.closed_at
-                    )
-                    await self.telebot.reply_to(
-                        message=message,
-                        text=initial_message.text,
-                        parse_mode=initial_message.parse_mode
-                    ); return
-                
-                initial_message = self.messages.groupcommon(
-                    self.template.messages.template_invalid_format_message
+            closed_ticket = await self.tickets.get_closed_ticket_by_ticketid(ticket_id)
+            if closed_ticket:
+                initial_message = self.messages.reply_message_group(
+                    self.template.messages.template_reply_closed_ticket,
+                    username=closed_ticket.handler_username,
+                    datetime=closed_ticket.closed_at
                 )
                 await self.telebot.reply_to(
                     message=message,
                     text=initial_message.text,
                     parse_mode=initial_message.parse_mode
                 ); return
-            
-            initial_message = self.messages.groupcommon(
-                self.template.messages.template_user_not_handler
+
+            initial_message = self.messages.replay_message(
+                self.template.messages.template_reply_bot_message,
+                ticket_id=ticket_id
             )
+
+            media_group_id = getattr(message, 'media_group_id', None)
+            if media_group_id:
+                await self._handle_media_group_message_group(
+                    message=message, 
+                    media_group_id=media_group_id, 
+                    ticket_id=ticket_id,
+                    username=username, 
+                    initial_message=initial_message
+                ); return
+            
+            msg: Message = await self._send_to_private(message, True, username)
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
-            ); return
-        return
+            )
 
+            await self.tickets.add_message_to_ticket(
+                ticket_id=ticket_id,
+                user_id=message.from_user.id,
+                message_id=msg.id,
+                message_chat_id=msg.chat.id,
+                username=message.from_user.username,
+                userfullname=message.from_user.full_name,
+                message=await self.issue_generator.issue_generator(message),
+                message_from=self.message_from.handler,
+                timestamp=message.date
+            ); return
+        
+        except Exception as e:
+            self.logger.error(f"Error handling group message: {e}")
+
+    
     async def _handle_media_group_message_private(self, message: Message, media_group_id: str, 
                                          ticket_id: int, initial_message: Messages) -> None:
         """
@@ -712,7 +744,6 @@ class HandlerMessages:
         
         self.storage.tempstore("media_group_id", media_group_id)
 
-        
         if media_group_id not in self.storage.temp.store:
             
             self.storage.tempstore(
@@ -752,7 +783,6 @@ class HandlerMessages:
                 text=initial_message.text,  
                 parse_mode=initial_message.parse_mode
             )
-            
         asyncio.create_task(self._process_media_groups_after_delay(media_group_id))
 
 
@@ -807,9 +837,9 @@ class HandlerMessages:
                 message=message,
                 text=initial_message.text,  
                 parse_mode=initial_message.parse_mode
-            )
-            
+            )            
         asyncio.create_task(self._process_media_private_after_delay(media_group_id, username))
+
 
     async def handler_open_tickets(self, message: Message):
         """
@@ -825,42 +855,34 @@ class HandlerMessages:
         Returns:
             None
         """
-        opened_tickets = await self.tickets.get_opened_tickets()
-        admin_handler_id = (
-            self.config.telegram.admin_ids + 
-            [handler.user_id for handler in await self.tickets.get_all_handlers()]
-        )
-
-        if message.from_user.id not in admin_handler_id:
-            initial_message: Messages = self.messages.privcommon(
-                self.template.messages.template_warning_message
+        try:
+            if message.from_user.id not in self.handler_admin_ids:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_user_not_handler
+                )
+            
+            opened_tickets = await self.tickets.get_opened_tickets()
+            if not opened_tickets:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_open_ticket_not_found
+                )
+        
+            initial_message = self.messages.open(
+                opened_tickets=opened_tickets,
+                template1=self.template.messages.template_open_ticket_in_admin,
+                template2=self.template.messages.template_link_open_ticket
             )
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
             ); return
-        else:
-            if not opened_tickets:
-                initial_message: Messages = self.messages.groupcommon(
-                    self.template.messages.template_open_ticket_not_found
-                )
-                await self.telebot.reply_to(
-                    message=message,
-                    text=initial_message.text,
-                    parse_mode=initial_message.parse_mode
-                ); return
-            else:
-                initial_message = self.messages.open(
-                    opened_tickets=opened_tickets,
-                    template1=self.template.messages.template_open_ticket_in_admin,
-                    template2=self.template.messages.template_link_open_ticket
-                )
-                await self.telebot.reply_to(
-                    message=message,
-                    text=initial_message.text,
-                    parse_mode=initial_message.parse_mode
-                ); return
+        
+        except Exception as e:
+            self.logger.error(f"Error handling open tickets: {e}")
+
 
     async def handler_closed_tickets(self, message: Message):
         """
@@ -872,19 +894,12 @@ class HandlerMessages:
         Returns:
             None
         """
-        admin_handler_id = (
-            self.config.telegram.admin_ids + 
-            [handler.user_id for handler in await self.tickets.get_all_handlers()]
-        )
-
-        if message.from_user.id not in admin_handler_id:
-            initial_message: Messages = self.messages.groupcommon(self.template.messages.template_warning_message)
-            await self.telebot.reply_to(
+        if message.from_user.id not in self.handler_admin_ids:
+            return await self._send_error_response(
                 message=message,
-                text=initial_message.text,
-                parse_mode=initial_message.parse_mode
-            ); return
-        
+                template=self.template.messages.template_user_not_handler
+            )
+
         if not message.reply_to_message:
             initial_message: Messages = self.messages.groupcommon(
                 self.template.messages.template_close_ticket_not_reply
@@ -897,38 +912,7 @@ class HandlerMessages:
         
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
-        
-        if matches and message.reply_to_message.from_user.id in self.config.telegram.admin_ids:
-            ticket_id = matches.group(1)
-            username = matches.group(3)
-
-            user_id = await self.tickets.get_userid_by_username(username)
-
-            timestamp = epodate(message.date)
-            await self.tickets.close_ticket(
-                ticket_id=ticket_id,
-                handler_id=message.from_user.id,
-                handler_username=message.from_user.username,
-                timezone=self.config.timezone
-            )
-
-            initial_message = self.messages.replay_message(
-                text=self.template.messages.template_closed_ticket,
-                ticket_id=ticket_id,
-                timestamp=timestamp
-            )
-            await self.telebot.reply_to(
-                message=message,
-                text=initial_message.text,
-                parse_mode=initial_message.parse_mode
-            )
-            await self._send_closed_private(
-                user_id.get("id"), 
-                message, 
-                ticket_id=ticket_id, 
-                timestamp=timestamp
-            )
-        else:
+        if not matches:
             initial_message = self.messages.groupcommon(
                 self.template.messages.template_invalid_format_message
             )
@@ -936,8 +920,38 @@ class HandlerMessages:
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
-            )
+            ); return
     
+        ticket_id = matches.group(1)
+        username = matches.group(3)
+
+        user_id = await self.tickets.get_userid_by_username(username)
+
+        timestamp = epodate(message.date)
+        await self.tickets.close_ticket(
+            ticket_id=ticket_id,
+            handler_id=message.from_user.id,
+            handler_username=message.from_user.username,
+            timezone=self.config.timezone
+        )
+
+        initial_message = self.messages.replay_message(
+            text=self.template.messages.template_closed_ticket,
+            ticket_id=ticket_id,
+            timestamp=timestamp
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        )
+        await self._send_closed_private(
+            user_id.get("id"), 
+            message, 
+            ticket_id=ticket_id, 
+            timestamp=timestamp
+        ); return
+
 
     async def handler_conversation(self, message: Message):
         """
@@ -949,9 +963,9 @@ class HandlerMessages:
         Returns:
             None
         """
-        if not message.reply_to_message:
-            initial_message: Messages = self.messages.groupcommon(
-                self.template.messages.template_close_ticket_not_reply
+        if message.from_user.id not in self.handler_admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_user_not_handler
             )
             await self.telebot.reply_to(
                 message=message,
@@ -959,40 +973,59 @@ class HandlerMessages:
                 parse_mode=initial_message.parse_mode
             ); return
         
+        if not message.reply_to_message:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_must_reply_ticket
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
-        
-        if matches and message.reply_to_message.from_user.id in self.config.telegram.admin_ids:
-            ticket_id = matches.group(1)
 
-            conversation = await self.tickets.get_ticket_messages(
-                ticket_id=ticket_id,
-                user_id=message.from_user.id,
-                is_handler=True,
+        if not matches:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_invalid_format_message
             )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
 
-            if not conversation:
-                initial_message = self.messages.groupcommon(
-                    self.template.messages.template_not_conversation
-                )
-                await self.telebot.reply_to(
-                    message=message,
-                    text=initial_message.text,
-                    parse_mode=initial_message.parse_mode
-                ); return
-            
-            initial_message = self.messages.conversation_message(
-                template=self.template.messages.template_conversation,
-                content_template=self.template.messages.template_content_conversation,
-                contents=conversation,
-                ticket_id=ticket_id
+        ticket_id = matches.group(1)
+        conversation = await self.tickets.get_ticket_messages(
+            ticket_id=ticket_id,
+            user_id=message.from_user.id,
+            is_handler=True,
+        )
+
+        if not conversation:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_not_conversation
             )
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
             )
-    
+        
+        initial_message = self.messages.conversation_message(
+            template=self.template.messages.template_conversation,
+            content_template=self.template.messages.template_content_conversation,
+            contents=conversation,
+            ticket_id=ticket_id,
+            func=self.markdown.escape_markdown
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        ); return
+
 
     async def handler_history(self, message: Message):
         """
@@ -1004,6 +1037,16 @@ class HandlerMessages:
         Returns:
             None
         """
+        if message.from_user.id not in self.handler_admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_user_not_handler
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+    
         ticket_handling = await self.tickets.get_user_tickets_history(message.from_user.id)
         if not ticket_handling:
             initial_message = self.messages.groupcommon(
@@ -1027,6 +1070,36 @@ class HandlerMessages:
         ); return
     
 
+    async def handler_typo_command(self, message: Message):
+        """
+        Handler the typo command.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
+        if message.from_user.id not in self.handler_admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_user_not_handler
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        initial_message = self.messages.groupcommon(
+            self.template.messages.template_typo_command
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        );  return
+
+
     async def handler_regist_user_handler(self, message: Message):
         """
         Handler the command regist user handler.
@@ -1037,6 +1110,16 @@ class HandlerMessages:
         Returns:
             None
         """
+        if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_not_reply_bot
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+
         if message.from_user.id not in self.config.telegram.admin_ids:
             initial_message = self.messages.groupcommon(
                 self.template.messages.template_admin_only
@@ -1068,4 +1151,115 @@ class HandlerMessages:
                 parse_mode=initial_message.parse_mode
             ); return
         
-            
+        await self.tickets.registration_handler(
+            user_id=message.reply_to_message.from_user.id,
+            username=message.reply_to_message.from_user.username
+        )
+        initial_message = self.messages.reply_message_group(
+            self.template.messages.template_added_new_handler,
+            username=message.reply_to_message.from_user.username
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        ); return
+    
+
+    async def handler_get_user_handler(self, message: Message):
+        """
+        Handler the command get user handler.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
+        if message.from_user.id not in self.config.telegram.admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_admin_only
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        handlers = await self.tickets.get_all_handlers()
+        initial_message = self.messages.handlers_message(
+            template=self.template.messages.template_handlers,
+            content_template=self.template.messages.template_handlers_content,
+            contents=handlers
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        ); return
+    
+
+    async def handler_deregist_user_handler(self, message: Message):
+        """
+        Handler the command deregist user handler.
+
+        Args:
+            message (Message): The incoming Telegram message object.
+
+        Returns:
+            None
+        """
+        if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_not_reply_bot
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        if message.from_user.id not in self.config.telegram.admin_ids:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_admin_only
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        if not message.reply_to_message:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_must_reply_to_message
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
+        if not message_reply_text:
+            initial_message = self.messages.groupcommon(
+                self.template.messages.template_reply_message_text_none
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        
+        await self.tickets.deregistration_handler(
+            user_id=message.reply_to_message.from_user.id
+        )
+        username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
+        initial_message = self.messages.reply_message_group(
+            self.template.messages.template_delete_handler,
+            username=username
+        )
+        await self.telebot.reply_to(
+            message=message,
+            text=initial_message.text,
+            parse_mode=initial_message.parse_mode
+        ); return

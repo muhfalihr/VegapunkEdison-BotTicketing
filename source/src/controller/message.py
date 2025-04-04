@@ -1,8 +1,7 @@
 from typing import Dict, List, Any, Literal
 from src.utility.utility import arson, reltime
 from src.types.messages import Messages
-from src.types.tickets import OpenedTickets, HistoryHandlerTickets
-# from src.resources.words import URGENT_WORDS
+from src.types.tickets import OpenedTickets, HistoryHandlerTickets, Handlers
 
 
 class SetupMessage:
@@ -52,16 +51,20 @@ class SetupMessage:
     def conversation_message(self, template: str, content_template: str, **kwargs):
         contents = kwargs.get("contents")
         ticket_id = kwargs.get("ticket_id")
+        func = kwargs.get("func")
         
         conversation = "\n"
         space = (' ' * 4)
 
         for content in contents:
+            content_message = content.message if len(content.message) < 100 \
+                else content.message[:100] + "..."
+            
             conversation += "\n" + content_template.format(
                 space=space,
                 userfullname=content.userfullname,
                 username=content.username,
-                message=content.message,
+                message=func(content_message),
                 timestamp=content.timestamp
             )
         
@@ -74,13 +77,26 @@ class SetupMessage:
         space = (' ' * 3)
 
         for content in contents:
-            print(content.created_at)
             histories += "\n" + content_template.format(
                 space=space,
                 ticket_id=content.ticket_id,
                 status=content.status.upper(),
-                timestamp=content.created_at
+                timestamp=content.closed_at
             )
         
         full_content = template.format(history_handling_tickets=histories)
+        return self._create_message(full_content, "Markdown", "group")
+
+    def handlers_message(self, template: str, content_template: str, contents: List[Handlers]):
+        handlers = "\n"
+        space = (' ' * 3)
+        
+        for content in contents:
+            handlers += "\n" + content_template.format(
+                space=space,
+                username=content.username,
+                user_id=content.user_id
+            )
+        
+        full_content = template.format(user_handlers=handlers)
         return self._create_message(full_content, "Markdown", "group")

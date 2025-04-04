@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 class TelegramConfig:
     token: str
     chat_id: int
+    bot_id: int
     admin_ids: List[int]
 
 @dataclass

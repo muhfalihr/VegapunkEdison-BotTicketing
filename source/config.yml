@@ -3,8 +3,9 @@ telegram:
 
   chat_id: -1002365039269
 
+  bot_id: 7933867253
   admin_ids: 
-    - 1276187109
+    - 1797658864
     - 707716709
     - 299596441
 
@@ -16,9 +17,9 @@ database:
   database: "ticketing"
   tables: # (Don't change it)
     - usersv2
-    - ticketsv4
-    - ticket_messagesv5
+    - ticketsv2
+    - ticket_messagesv2
     - banned_users
-    - handlers
+    - handlersv2
 
 timezone: "Asia/Jakarta"

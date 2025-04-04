@@ -4,7 +4,7 @@ import traceback
 from typing import List, Dict, Any, Optional
 from loguru import logger
 
-from src.resources.queries import (
+from src.localization.queries import (
     CREATE_TABLE_TICKETS,
     CREATE_TABLE_TICKET_MESSAGES,
     CREATE_TABLE_BANNED_USERS,
@@ -12,6 +12,7 @@ from src.resources.queries import (
     CREATE_TABLE_USERS_DETAILS,
     GET_ALL_TABLES,
     INSERT_USER_FOR_HANDLER,
+    DELETE_USER_FROM_HANDLER,
     GET_ALL_HANDLERS,
     CHECK_USER_IS_HANDLER,
     CREATE_TICKET,
@@ -207,6 +208,23 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to register handler {username}: {str(e)}")
             raise
     
+    async def deregistration_handler(self, user_id: int) -> bool:
+        """Deregister a new support handler in the system.
+        
+        Args:
+            user_id: Unique identifier for the user
+            
+        Returns:
+            True if deregistration was successful
+        """
+        try:
+            affected_rows = await self.execute(DELETE_USER_FROM_HANDLER, (user_id,))
+            self.logger.info(f"Deregistered handler: (ID: {user_id})")
+            return affected_rows > 0
+        except Exception as e:
+            self.logger.error(f"Failed to deregister handler (ID: {user_id}): {str(e)}")
+            raise
+
     async def get_all_handlers(self) -> List[Handlers]:
         """Retrieve all registered support handlers.
         
@@ -321,12 +339,12 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to retrieve ticket {ticket_id}: {str(e)}")
             raise
     
-    async def get_user_tickets_history(self, user_id: int) -> List[HistoryHandlerTickets]:
+    async def get_user_tickets_history(self, handler_id: int) -> List[HistoryHandlerTickets]:
         """
         Retrieve the ticket history for a given user.
 
         Args:
-            user_id (int): The ID of the user whose ticket history is to be retrieved.
+            handler_id (int): The ID of the user whose ticket history is to be retrieved.
 
         Returns:
             List[HistoryHandlerTickets]: A list of HistoryHandlerTickets objects representing the user's ticket history.
@@ -335,15 +353,15 @@ class HandlerTickets(BtAioMysql):
             Exception: If an error occurs while fetching the ticket history.
         """
         try:
-            result = await self.fetch_all(GET_HISTORY_HANDLER_TICKETS, (user_id,))
+            result = await self.fetch_all(GET_HISTORY_HANDLER_TICKETS, (handler_id,))
             tickets = [
                 HistoryHandlerTickets(**ticket)
                 for ticket in result
             ]
-            self.logger.debug(f"Retrieved {len(tickets)} tickets for user {user_id}")
+            self.logger.debug(f"Retrieved {len(tickets)} tickets for handler user {handler_id}")
             return tickets
         except Exception as e:
-            self.logger.error(f"Failed to retrieve tickets for user {user_id}: {str(e)}")
+            self.logger.error(f"Failed to retrieve tickets for user {handler_id}: {str(e)}")
             raise
     
     async def get_user_details_by_id(self, id: int):

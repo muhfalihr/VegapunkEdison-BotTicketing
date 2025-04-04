@@ -39,6 +39,7 @@ class UserDetails:
 @dataclass
 class MessageFrom:
     admin: str = "admin"
+    handler: str = "handler"
     user: str = "user"
 
 

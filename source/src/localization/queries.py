@@ -1,5 +1,5 @@
 CREATE_TABLE_TICKETS: str = """
-CREATE TABLE IF NOT EXISTS ticketsv4 (
+CREATE TABLE IF NOT EXISTS ticketsv2 (
     ticket_id VARCHAR(64) PRIMARY KEY,
     user_id BIGINT NOT NULL,
     message_id BIGINT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS ticketsv4 (
 """
 
 CREATE_TABLE_TICKET_MESSAGES: str = """
-CREATE TABLE IF NOT EXISTS ticket_messagesv5 (
+CREATE TABLE IF NOT EXISTS ticket_messagesv2 (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id VARCHAR(64) NOT NULL,
     user_id BIGINT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS ticket_messagesv5 (
     username VARCHAR(255) NOT NULL,
     userfullname VARCHAR(500) NOT NULL,
     message TEXT NOT NULL,
-    message_from ENUM('admin', 'user') DEFAULT 'admin',
+    message_from ENUM('admin', 'user', 'handler') DEFAULT 'user',
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES ticketsv4(ticket_id) ON DELETE CASCADE,
     INDEX idx_ticket_id (ticket_id),
@@ -59,13 +59,11 @@ CREATE TABLE IF NOT EXISTS banned_users (
 """
 
 CREATE_TABLE_HANDLERS: str = """
-CREATE TABLE IF NOT EXISTS handlers (
+CREATE TABLE IF NOT EXISTS handlersv2 (
     user_id BIGINT PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,
-    total_tickets_handled INT DEFAULT 0,
-    last_activity TIMESTAMP NULL,
     INDEX idx_username (username),
     INDEX idx_is_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -79,6 +77,10 @@ WHERE TABLE_SCHEMA = %s;
 
 INSERT_USER_FOR_HANDLER: str = """
 INSERT IGNORE INTO handlers (user_id, username) VALUES (%s, %s)
+"""
+
+DELETE_USER_FROM_HANDLER: str = """
+DELETE FROM handlers WHERE user_id = %s;
 """
 
 GET_ALL_HANDLERS: str = """
@@ -160,9 +162,10 @@ ORDER BY closed_at DESC
 GET_HISTORY_HANDLER_TICKETS: str = """
 SELECT ticket_id, issue, status, created_at, closed_at, handler_username 
 FROM ticketsv4
-WHERE user_id = %s 
-  AND DATE(created_at) = CURDATE() 
-ORDER BY created_at DESC;
+WHERE handler_id = %s 
+  AND DATE(closed_at) = CURDATE() 
+ORDER BY closed_at ASC
+LIMIT 10;
 """
 
 GET_OPENED_TICKETS: str = """

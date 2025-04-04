@@ -106,3 +106,11 @@ def search(s: str, p: str):
         result = matches
         return result
     return None
+
+def invalid_command(text: str, key: str, **kwargs):
+    c = False
+    pattern = re.compile(r'^/')
+    matches = pattern.match(text)
+    if text not in kwargs[key].split(",") and matches:
+        c = True
+    return c

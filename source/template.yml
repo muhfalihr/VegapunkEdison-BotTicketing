@@ -70,6 +70,9 @@ messages:
     🚫 *ACTION DENIED*: Anda bukan user handler bot ticketing ini.
     Silahkan hubungi _Admin_ 📞 👨🏼‍💻.
   
+  template_not_reply_bot: |
+    🚫 *ACTION DENIED*: ❌ Tidak bisa membalas 💬 pesan bot untuk perintah ini.
+  
   template_not_conversation: |
     🎫 *Ticket* #{ticket_id} belum memiliki percakapan. 💬❓
   
@@ -112,7 +115,7 @@ messages:
     /conversation
   
   template_empty_history: |
-    📭 Belum ada riwayat tiket!
+    📭 Tidak Ada Tiket Yang Ditangani!
   
   template_history: |
     🗃 History Handling Tickets *( Today )* :{history_handling_tickets}
@@ -124,6 +127,9 @@ messages:
 
   template_admin_only: |
     ⛔ *AKSES TERBATAS*: Perintah ini hanya dapat digunakan oleh _Administrator_.
+
+  template_must_reply_ticket: |
+    ⚠️ *PERHATIKAN*: Anda harus membalas pesan yang mencantumkan Ticket ID.
   
   template_must_reply_to_message: |
     ⚠️ *PERHATIKAN*: Anda harus membalas semua pesan dari user.
@@ -135,3 +141,21 @@ messages:
     🚫 Mohon maaf, Pesan anda terlalu panjang.
     ✏️ Tolong kirim pesan yang lebih singkat.
     🙏 Terima kasih atas pengertian Anda.
+  
+  template_typo_command: |
+    ⚠️ *PERHATIKAN*: Command anda tidak ditemukan ⁉️.
+    🔎 Periksa kembali command anda.
+  
+  template_added_new_handler: |
+    🚀 Sukses! Menambahkan *User Handler* baru 👨🏼‍💻.
+    🪪 User @{username} dapat menangani 🎫 *Ticket*.
+  
+  template_delete_handler: |
+    🚀 Sukses! Menghapus *User Handler* 🗑.
+    🪪 User @{username} tidak dapat menangani 🎫 *Ticket* ⛔️.
+  
+  template_handlers: |
+    📇 Daftar User Handlers :{user_handlers}
+  
+  template_handlers_content: |
+    {space}• 🪪 @{username} | 🏷 {user_id}
