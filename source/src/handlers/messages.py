@@ -1155,9 +1155,10 @@ class HandlerMessages:
             user_id=message.reply_to_message.from_user.id,
             username=message.reply_to_message.from_user.username
         )
+        username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
             self.template.messages.template_added_new_handler,
-            username=message.reply_to_message.from_user.username
+            username=username
         )
         await self.telebot.reply_to(
             message=message,

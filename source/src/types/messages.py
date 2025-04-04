@@ -46,6 +46,7 @@ class MessageJson:
     text: str = "..."
     entities: Optional[List[Dict[str, Any]]] = None
     has_protected_content: Optional[bool] = False
+    link_preview_options: Optional[Dict[str, Any]] = None
 
 
 @dataclass
