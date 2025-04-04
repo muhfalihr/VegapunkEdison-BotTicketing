@@ -96,9 +96,8 @@ class SetupMessage:
         handlers = "\n"
         space = (' ' * 3)
         
-        username = func(content.username)
-        
         for content in contents:
+            username = func(content.username)
             handlers += "\n" + content_template.format(
                 space=space,
                 username=username,
