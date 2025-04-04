@@ -1110,6 +1110,7 @@ class HandlerMessages:
         Returns:
             None
         """
+        print(message)
         if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
             initial_message = self.messages.groupcommon(
                 self.template.messages.template_not_reply_bot
