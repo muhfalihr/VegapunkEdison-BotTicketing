@@ -1005,14 +1005,15 @@ class HandlerMessages:
         )
 
         if not conversation:
-            initial_message = self.messages.groupcommon(
-                self.template.messages.template_not_conversation
+            initial_message = self.messages.reply_message_group(
+                self.template.messages.template_not_conversation,
+                ticket_id=ticket_id
             )
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
                 parse_mode=initial_message.parse_mode
-            )
+            ); return
         
         initial_message = self.messages.conversation_message(
             template=self.template.messages.template_conversation,
@@ -1158,7 +1159,10 @@ class HandlerMessages:
         )
 
         # Refresh Get User Handler
-        await self._ids_user_admin_handler()
+        self.handler_admin_ids = (
+            self.config.telegram.admin_ids + 
+            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+        )
 
         username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
@@ -1272,7 +1276,10 @@ class HandlerMessages:
         )
         
         # Refresh Get User Handler
-        await self._ids_user_admin_handler()
+        self.handler_admin_ids = (
+            self.config.telegram.admin_ids + 
+            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+        )
         
         username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
