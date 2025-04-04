@@ -1206,7 +1206,8 @@ class HandlerMessages:
         initial_message = self.messages.handlers_message(
             template=self.template.messages.template_handlers,
             content_template=self.template.messages.template_handlers_content,
-            contents=handlers
+            contents=handlers,
+            func=self.markdown.escape_undescores
         )
         await self.telebot.reply_to(
             message=message,
