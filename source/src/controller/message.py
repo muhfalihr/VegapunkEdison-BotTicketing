@@ -96,10 +96,12 @@ class SetupMessage:
         handlers = "\n"
         space = (' ' * 3)
         
+        username = func(content.username)
+        
         for content in contents:
             handlers += "\n" + content_template.format(
                 space=space,
-                username=func(content.username),
+                username=username,
                 user_id=content.user_id
             )
         
