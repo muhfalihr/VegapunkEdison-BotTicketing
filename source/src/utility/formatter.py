@@ -35,7 +35,7 @@ class MarkdownFormatter:
             "pre": {"start": "```", "end": "```", "type": FormatType.PRE},
             
             # Text styling
-            "bold": {"start": "**", "end": "**", "type": FormatType.BOLD},
+            "bold": {"start": "*", "end": "*", "type": FormatType.BOLD},
             "italic": {"start": "_", "end": "_", "type": FormatType.ITALIC},
             "strikethrough": {"start": "~~", "end": "~~", "type": FormatType.STRIKETHROUGH},
             
@@ -83,6 +83,7 @@ class MarkdownFormatter:
                 except IndexError:
                     if not start <= idx < end:
                         text_list[idx] = "\\_"
+        return text_list
     
     def escape_undescores(self, text: str) -> str:
         """Escape undescores."""
@@ -126,7 +127,6 @@ class MarkdownFormatter:
         text_list = list(text)
         
         formatted_entities = [self._convert_to_formatting_entity(entity) for entity in entities]
-        
         formatted_entities.sort(key=lambda x: x.offset, reverse=True)
         
         format_ranges = []
@@ -135,8 +135,7 @@ class MarkdownFormatter:
             if format_range:
                 format_ranges.append(format_range)
 
-        self._escape_underscores(text_list, format_ranges)
-        
+        text_list = self._escape_underscores(text_list, format_ranges)
         return ''.join(text_list)
     
     def escape_markdown(self, text: str):
