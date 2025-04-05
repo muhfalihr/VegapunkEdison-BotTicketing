@@ -1,3 +1,7 @@
+bot:
+  name: Vegapunk Edison - Bot Ticketing
+  lang: id # Available languages: id and en
+
 telegram:
   token: "7933867253:AAFDSRhNmoYzgPfVA8ZvldAfRZgSU9yfoDY"
 

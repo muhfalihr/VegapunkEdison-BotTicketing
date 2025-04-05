@@ -4,6 +4,11 @@ from typing import Dict, Any, List, Optional
 
 
 @dataclass
+class BotConfig:
+    name: str
+    lang: str
+
+@dataclass
 class TelegramConfig:
     token: str
     chat_id: int
@@ -21,6 +26,7 @@ class DatabaseConfig:
 
 @dataclass
 class Config:
+    bot: BotConfig
     telegram: TelegramConfig
     database: DatabaseConfig
     timezone: str

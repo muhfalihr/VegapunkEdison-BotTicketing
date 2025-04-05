@@ -16,8 +16,10 @@ class SetupMessage:
     def privcommon(self, content: str) -> Messages:
         return self._create_message(content, "Markdown", "private")
     
-    def groupcommon(self, content: str) -> Messages:
-        return self._create_message(content, "Markdown", "group")
+    def groupcommon(self, content: str, **kwargs) -> Messages:
+        if not kwargs:
+            return self._create_message(content, "Markdown", "group")
+        return self._create_message(content.format(**kwargs), "Markdown", "group")
     
     def open(self, opened_tickets: List[OpenedTickets], template1: str, template2: str, **kwargs) -> Messages:
         func = kwargs.get("func")

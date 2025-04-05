@@ -1,6 +1,6 @@
 messages:
   custom_welcome_message: |
-    🙏 Selamat datang di *Binstro Support System*
+    🙏 Selamat datang di *{bot_name}*
 
     Terima kasih telah menghubungi kami. Untuk membantu Anda dengan lebih baik:
 
@@ -13,7 +13,7 @@ messages:
   reply_message_private: |
     🎫 *Ticket #{ticket_id}*
 
-    Terima kasih 🙏 telah menghubungi *Binstro Support*.
+    Terima kasih 🙏 telah menghubungi *{bot_name}*.
 
     ✅ Pesan Anda telah kami terima dan akan segera diproses.
     📋 Tim kami akan menindaklanjuti dalam waktu 1x24 jam kerja.
@@ -100,6 +100,7 @@ messages:
   
   template_closed_ticket: |
     🎫 *Ticket* #{ticket_id} - *CLOSED*
+    🪪 @{username}
     ⏰ `{timestamp}`
   
   template_reply_closed_ticket: |

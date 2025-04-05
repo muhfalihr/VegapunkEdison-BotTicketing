@@ -1,0 +1,165 @@
+messages:
+  custom_welcome_message: |
+    🙏 Welcome to *{bot_name}*
+
+    Thank you for contacting us. To help you better:
+
+    📝 Each message you send will automatically create a ticket
+    ⏱️ Our team will respond as soon as possible
+    ✅ Please explain your complaint or question in detail
+
+    Please share your complaint or question now.
+
+  reply_message_private: |
+    🎫 *Ticket #{ticket_id}*
+
+    Thank you 🙏 for contacting *{bot_name}*.
+
+    ✅ Your message has been received and will be processed promptly.
+    📋 Our team will follow up within 1x24 work hours.
+  
+  reply_additional_message_private: |
+    ✅ Your message has been successfully added to the ticket.
+    📋 Our team will follow up within 1x24 work hours.
+
+  urgent_issue_messagge: |
+    ⚠️ *Urgent Report*
+
+    We understand the urgency of your report. Our team will prioritize 
+    handling this issue with a response time of 4 working hours.
+    Please wait a moment, our team will contact you shortly.
+
+  template_ticket_message: |
+    🎫 *Ticket* #{ticket_id}
+
+    🪪 *{user_name}* (@{username})
+    ⏰ `{timestamp}`
+
+    📝 *Details:*
+    {message}
+  
+  template_ticket_message_admin: |
+    💬 *Reply from* 🪪 `{user_name}` (@{username})
+
+    📝 *Details:*
+    {message}
+  
+  template_reply_bot_message: |
+    🚀 Success! Reply has been sent to the user with *Ticket* #{ticket_id} 📨
+  
+  template_warning_message: |
+    ⚠️ *Attention!* ⚠️
+    You are not a system administrator and do not have access to run commands on this bot.
+    Please contact an administrator if you need further assistance.
+    Thank you for your understanding! 🤖✨
+  
+  template_invalid_message: |
+    ⚠️ Sorry! Message cannot be processed because the command is not valid for the user. 🚫
+    ✅ Please use available commands.
+    🙏 Thank you!
+  
+  template_invalid_format_message: |
+    ❌ *INVALID FORMAT*: 💬 Message does not meet requirements 🧾.
+  
+  template_reply_badwords: |
+    🚫 We apologize, your message contains content that does not comply with our guidelines. 
+    ✏️ Please resend without offensive or inappropriate words.
+    🙏 Thank you for your understanding.
+  
+  template_user_not_handler: |
+    🚫 *ACTION DENIED*: You are not a user handler for this ticketing bot.
+    Please contact an _Admin_ 📞 👨🏼‍💻.
+  
+  template_not_reply_bot: |
+    🚫 *ACTION DENIED*: ❌ Cannot reply 💬 to bot messages for this command.
+  
+  template_not_conversation: |
+    🎫 *Ticket* #{ticket_id} does not have any conversations yet. 💬❓
+  
+  template_conversation: |
+    📬 Conversation in *Ticket* #{ticket_id} ↴{conversation}
+  
+  template_content_conversation: |
+    {space}🪪 *{userfullname}* (@{username})
+    {space}      ↳ 💬 {message}
+    {space}           ⏰ `{timestamp}`
+
+  template_open_ticket_in_admin: |
+    🎫 *Open Tickets*:{list_open_tickets}
+  
+  template_link_open_ticket: |
+    • #{ticket_id}  |  🪪 *{user_full_name}* (@{username})
+        ↳ ⏱️ {relative_time}  |  🔗 [View Message]({link_message})
+
+  template_open_ticket_not_found: |
+    ❌ No 🎫 tickets available.
+    🔍 Try again later or check the ticket queue periodically.
+
+  template_close_ticket_not_reply: |
+    ⚠️ *ATTENTION*: You must reply to the message that includes the Ticket ID to close the ticket.
+  
+  template_closed_ticket: |
+    🎫 *Ticket* #{ticket_id} - *CLOSED*
+    🪪 @{username}
+    ⏰ `{timestamp}`
+  
+  template_reply_closed_ticket: |
+    🚫 *ACTION DENIED*: 🎫 Ticket is already closed.
+    Closed by 🪪 @{username} ⏱️ `{datetime}`.
+  
+  template_help_private: |
+    /start
+  
+  template_help_group: |
+    /open
+    /close
+    /conversation
+  
+  template_empty_history: |
+    📭 No Tickets Handled!
+  
+  template_history: |
+    🗃 History of Handling Tickets *( Today )* :{history_handling_tickets}
+  
+  template_list_history: |
+    {space}🎫 *Ticket* #{ticket_id}
+    {space}  ↳ 📊 *{status}*
+    {space}{space}   ⏰ `{timestamp}`
+
+  template_admin_only: |
+    ⛔ *LIMITED ACCESS*: This command can only be used by _Administrators_.
+
+  template_must_reply_ticket: |
+    ⚠️ *ATTENTION*: You must reply to the message that includes the Ticket ID.
+  
+  template_must_reply_to_message: |
+    ⚠️ *ATTENTION*: You must reply to all messages from the user.
+  
+  template_reply_message_text_none: |
+    ⚠️ *ATTENTION*: You must reply to all text messages from the user.
+  
+  template_length_too_long_message: |
+    🚫 We apologize, your message is too long.
+    ✏️ Please send a shorter message.
+    🙏 Thank you for your understanding.
+  
+  template_typo_command: |
+    ⚠️ *ATTENTION*: Command not found ⁉️.
+    🔎 Please check your command again.
+  
+  template_added_new_handler: |
+    🚀 Success! Added a new *User Handler* 👨🏼‍💻.
+    🪪 User @{username} can now handle 🎫 *Tickets*.
+  
+  template_delete_handler: |
+    🚀 Success! Deleted *User Handler* 🗑.
+    🪪 User @{username} can no longer handle 🎫 *Tickets* ⛔️.
+  
+  template_handlers: |
+    📇 List of User Handlers:{user_handlers}
+  
+  template_handlers_content: |
+    {space}• 🪪 @{username} | 🏷 {user_id}
+  
+  template_empty_handlers: |
+    📂 No User Handlers available yet.

@@ -26,11 +26,16 @@ class BotTicketing(HandlerMessages):
         super().__init__()
         self.logger = logger
         self.config = config
-        self.template = template
+
+        self.logger.info(f"Initializing {self.config.bot.name}")
+
+        self.template = template(self.config.bot.lang)
+        self.logger.info(f"Template loaded with language: {self.config.bot.lang}")
 
         self.telebot: AsyncTeleBot = AsyncTeleBot(
             token=self.config.telegram.token, 
             state_storage=StateMemoryStorage())
+        self.logger.info("Telegram bot initialized with state storage")
         
         self.storage: Store = Store()
         self.messages: SetupMessage = SetupMessage()
