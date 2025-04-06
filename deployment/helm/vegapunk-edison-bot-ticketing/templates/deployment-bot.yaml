@@ -19,7 +19,7 @@ spec:
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: additional-config
-              mountPath: /app/config.yml
+              mountPath: /vegapunk-app/config.yml
               subPath: config.yml
       volumes:
         - name: additional-config

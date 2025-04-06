@@ -4,7 +4,7 @@ services:
     image: vegapunk-edison-bot-ticketing
     restart: unless-stopped
     volumes:
-      - /path/to/config.yml:/app/config.yml
+      - /path/to/config.yml:/vegapunk-app/config.yml
     networks:
       - vegapunk-network
 
