@@ -954,17 +954,18 @@ class HandlerMessages:
         user_id = await self.tickets.get_userid_by_username(username)
 
         timestamp = epodate(message.date)
+        handler_username = self.markdown.escape_undescores(message.from_user.username)
         await self.tickets.close_ticket(
             ticket_id=ticket_id,
             handler_id=message.from_user.id,
-            handler_username=message.from_user.username,
+            handler_username=handler_username,
             timezone=self.config.timezone
         )
 
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_closed_ticket,
             ticket_id=ticket_id,
-            username=username,
+            username=self.markdown.escape_undescores(username),
             timestamp=timestamp
         )
         await self.telebot.reply_to(
@@ -976,7 +977,7 @@ class HandlerMessages:
             user_id.get("id"), 
             message, 
             ticket_id=ticket_id, 
-            username=username,
+            username=self.markdown.escape_undescores(username),
             timestamp=timestamp
         ); return
 

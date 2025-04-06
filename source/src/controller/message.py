@@ -68,8 +68,8 @@ class SetupMessage:
             
             conversation += "\n" + content_template.format(
                 space=space,
-                userfullname=content.userfullname,
-                username=content.username,
+                userfullname=func(content.userfullname),
+                username=func(content.username),
                 message=func(content_message),
                 timestamp=content.timestamp
             )
