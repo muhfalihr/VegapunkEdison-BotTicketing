@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: vegapunk-edison-bot-ticketing
+  namespace: bot-ticketing
+spec:
+  selector:
+    matchLabels:
+      app: vegapunk-edison-bot-ticketing
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: vegapunk-edison-bot-ticketing
+    spec:
+      containers:
+        - name: vegapunk-edison-bot-ticketing
+          image: vegapunk-edison-bot-ticketing
+          imagePullPolicy: IfNotPresent
+
+          volumeMounts:
+          - name: additional-config
+            mountPath: /app/config.yml
+            subPath: config.yml
+
+      volumes:
+       - name: additional-config
+         configMap:
+          name: bot-ticketing-config
+
+      imagePullSecrets:
+        - name: registry-bot-ticketing

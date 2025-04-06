@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-ticketing-config
+  namespace: bot-ticketing
+data:
+  config.yml: |
+    bot:
+      name: Vegapunk Edison - Bot Ticketing
+      lang: id # Available languages: id and en
+
+    telegram:
+      token: "7933867253:AAFDSRhNmoYzgPfVA8ZvldAfRZgSU9yfoDY"
+
+      chat_id: -1002365039269
+
+      bot_id: 7933867253
+      admin_ids: 
+        - 1797658864
+        - 707716709
+        - 299596441
+
+    database:
+      host: "192.168.107.50"
+      port: 3333
+      user: "ticketing"
+      password: "mySqlBOTtICkETing@2k25"
+      database: "ticketing"
+      tables: # (Don't change it)
+        - usersv2
+        - ticketsv2
+        - ticket_messagesv2
+        - banned_users
+        - handlersv2
+
+    timezone: "Asia/Jakarta"
