@@ -1,0 +1,27 @@
+namespace: bot-ticketing
+bot:
+  bot_name: Vegapunk Edison - Bot Ticketing
+  lang: id # Opions: id or en
+
+  name: vegapunk-edison-bot-ticketing
+  image: vegapunk-edison-bot-ticketing
+  config:
+    botToken: "<your-bot-token>"
+    chatId: "<group-or-channel-id>"
+    botId: "<bot-id>"
+    adminIds:
+      - "<admin-telegram-id>"
+    db:
+      host: svc-vegapunk-edison-database
+      user: vegapunk
+      password: vegapunkbotticketing
+      database: bot-ticketing
+
+mysql:
+  name: vegapunk-edison-database
+  user: vegapunk
+  password: vegapunkbotticketing
+  database: bot-ticketing
+  volume:
+    server: <IP-SERVER-NFS>
+    path: /path/to/mount

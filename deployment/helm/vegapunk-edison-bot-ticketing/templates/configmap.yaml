@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-ticketing-config
+  namespace: {{ .Values.namespace }}
+data:
+  config.yml: |
+    bot:
+      name: {{ .Values.bot.bot_name }}
+      lang: {{ .Values.bot.lang }}
+
+    telegram:
+      token: {{ .Values.bot.config.botToken | quote }}
+      chat_id: {{ .Values.bot.config.chatId }}
+      bot_id: {{ .Values.bot.config.botId }}
+      admin_ids:
+{{- range .Values.bot.config.adminIds }}
+        - {{ . }}
+{{- end }}
+
+    database:
+      host: {{ .Values.bot.config.db.host | quote }}
+      port: 3306
+      user: {{ .Values.bot.config.db.user | quote }}
+      password: {{ .Values.bot.config.db.password | quote }}
+      database: {{ .Values.bot.config.db.database | quote }}
+      tables:
+        - usersv2
+        - ticketsv2
+        - ticket_messagesv2
+        - banned_users
+        - handlersv2
+
+    timezone: "Asia/Jakarta"

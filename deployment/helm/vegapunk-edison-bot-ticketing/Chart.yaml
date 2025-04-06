@@ -1,0 +1,5 @@
+apiVersion: v2
+name: vegapunk-edison-bot-ticketing
+description: A Helm chart for deploying bot and MySQL for ticketing
+version: 0.1.0
+appVersion: "1.0"

@@ -7,26 +7,22 @@ data:
   config.yml: |
     bot:
       name: Vegapunk Edison - Bot Ticketing
-      lang: id # Available languages: id and en
+      lang: id  # Options: id or en
 
     telegram:
-      token: "7933867253:AAFDSRhNmoYzgPfVA8ZvldAfRZgSU9yfoDY"
-
-      chat_id: -1002365039269
-
-      bot_id: 7933867253
-      admin_ids: 
-        - 1797658864
-        - 707716709
-        - 299596441
+      token: "<your-bot-token>"
+      chat_id: <group-or-channel-id>
+      bot_id: <bot-id>
+      admin_ids:
+        - <admin-telegram-id>
 
     database:
-      host: "192.168.107.50"
-      port: 3333
-      user: "ticketing"
-      password: "mySqlBOTtICkETing@2k25"
-      database: "ticketing"
-      tables: # (Don't change it)
+      host: "<your-db-host>"
+      port: 3306
+      user: "<user>"
+      password: "<your-password>"
+      database: "<database>"
+      tables:
         - usersv2
         - ticketsv2
         - ticket_messagesv2

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-vegapunk-edison-database
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.mysql.name }}
+spec:
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: {{ .Values.mysql.name }}
+  type: ClusterIP

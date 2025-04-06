@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - ./configmap.yml
-  - ./deployment.yml
+  - ./deployment-database.yml
+  - ./deployment-bot.yml

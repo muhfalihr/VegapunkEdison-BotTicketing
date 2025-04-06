@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vegapunk-edison-database
+spec:
+  capacity:
+    storage: 200Gi
+  nfs:
+    server: <IP-SERVER-NFS>
+    path: /path/to/mount
+  accessModes:
+    - ReadWriteMany
+  claimRef:
+    kind: PersistentVolumeClaim
+    namespace: bot-ticketing
+    name: pvc-vegapunk-edison-database
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - hard
+    - nfsvers=4.2
+  volumeMode: Filesystem
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-vegapunk-edison-database
+  namespace: bot-ticketing
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  volumeName: pv-vegapunk-edison-database
+  storageClassName: ''
+  volumeMode: Filesystem
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-vegapunk-edison-database
+  namespace: bot-ticketing
+  labels:
+    app: vegapunk-edison-database
+spec:
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3306
+      targetPort: 3306
+  selector:
+    app: vegapunk-edison-database
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vegapunk-edison-database
+  namespace: bot-ticketing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vegapunk-edison-database
+  template:
+    metadata:
+      labels:
+        app: vegapunk-edison-database
+    spec:
+      volumes:
+        - name: main-data
+          persistentVolumeClaim:
+            claimName: pvc-vegapunk-edison-database
+      containers:
+        - name: vegapunk-edison-database
+          image: mysql:8.0
+          
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: vegapunkbotticketing
+            - name: MYSQL_DATABASE
+              value: bot-ticketing
+            - name: MYSQL_USER
+              value: vegapunk
+            - name: MYSQL_PASSWORD
+              value: vegapunkbotticketing
+
+          volumeMounts:
+            - name: main-data
+              mountPath: /var/lib/mysql
+          
+          imagePullPolicy: IfNotPresent

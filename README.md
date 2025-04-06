@@ -10,11 +10,8 @@
 .
 ├── deployment/
 │   ├── docker/
-│   │   └── docker-compose.yml
+│   ├── helm/
 │   └── manifest/
-│       ├── configmap.yml
-│       ├── deployment.yml
-│       └── kustomization.yml
 └── source/
     ├── config.yml
     ├── edison.py
@@ -109,11 +106,77 @@ docker-compose -f deployment/docker/docker-compose.yml up --build
 Use the Kubernetes manifests under `deployment/manifest/` to deploy to your cluster.
 
 ```bash
+kubectl create namespace bot-ticketing
+
 kubectl apply -k deployment/manifest/
 ```
 
 ---
 
+## 🚀 Helm Deployment
+
+Deploy to Kubernetes with Helm:
+
+### 🧾 Prerequisites
+
+- Kubernetes cluster
+- Helm 3+
+- NFS server for volume persistence
+
+### 📝 Example `values.yaml`
+
+```yaml
+namespace: bot-ticketing
+
+bot:
+  bot_name: Vegapunk Edison - Bot Ticketing
+  lang: id
+
+  name: vegapunk-edison-bot-ticketing
+  image: vegapunk-edison-bot-ticketing
+  config:
+    botToken: "<your-bot-token>"
+    chatId: "<group-or-channel-id>"
+    botId: "<bot-id>"
+    adminIds:
+      - "<admin-telegram-id>"
+    db:
+      host: svc-vegapunk-edison-database
+      user: vegapunk
+      password: vegapunkbotticketing
+      database: bot-ticketing
+
+mysql:
+  name: vegapunk-edison-database
+  user: vegapunk
+  password: vegapunkbotticketing
+  database: bot-ticketing
+  volume:
+    server: <IP-SERVER-NFS>
+    path: /path/to/mount
+```
+
+### 📦 Deploy with Helm
+
+```bash
+kubectl create namespace bot-ticketing
+
+helm install vegapunk-edison-bot-ticketing ./deployment/helm/vegapunk-edison-bot-ticketing -n bot-ticketing
+```
+
+Upgrade:
+
+```bash
+helm upgrade vegapunk-edison-bot-ticketing ./deployment/helm/vegapunk-edison-bot-ticketing -n bot-ticketing
+```
+
+Uninstall:
+
+```bash
+helm uninstall vegapunk-edison-bot-ticketing -n bot-ticketing
+```
+
+---
 
 ## 🧾 Bot Commands
 

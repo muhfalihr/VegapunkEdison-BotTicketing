@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.bot.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.bot.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.bot.name }}
+    spec:
+      containers:
+        - name: {{ .Values.bot.name }}
+          image: {{ .Values.bot.image }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: additional-config
+              mountPath: /app/config.yml
+              subPath: config.yml
+      volumes:
+        - name: additional-config
+          configMap:
+            name: bot-ticketing-config
+      imagePullSecrets:
+        - name: registry-bot-ticketing
