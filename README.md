@@ -133,7 +133,7 @@ bot:
   lang: id
 
   name: vegapunk-edison-bot-ticketing
-  image: vegapunk-edison-bot-ticketing
+  image: muhfalihr/vegapunkedison-bot-ticketing:1.0.0
   config:
     botToken: "<your-bot-token>"
     chatId: "<group-or-channel-id>"

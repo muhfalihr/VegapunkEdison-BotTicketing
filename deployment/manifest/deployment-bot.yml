@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: vegapunk-edison-bot-ticketing
-          image: vegapunk-edison-bot-ticketing
+          image: muhfalihr/vegapunkedison-bot-ticketing:1.0.0
           imagePullPolicy: IfNotPresent
 
           volumeMounts:
