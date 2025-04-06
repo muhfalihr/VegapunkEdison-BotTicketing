@@ -1,4 +1,20 @@
 services:
+  vegapunk-edison-database:
+    container_name: vegapunk-edison-database
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: vegapunkbotticketing
+      MYSQL_DATABASE: bot-ticketing
+      MYSQL_USER: vegapunk
+      MYSQL_PASSWORD: vegapunkbotticketing
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    volumes:
+      - /path/to/backup:/var/lib/mysql
+    networks:
+      - vegapunk-network
+
   vegapunk-edison-bot-ticketing:
     container_name: vegapunk-edison-bot-ticketing
     image: vegapunk-edison-bot-ticketing
