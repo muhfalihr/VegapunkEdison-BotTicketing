@@ -69,7 +69,7 @@ timezone: "Asia/Jakarta"
 
 1. **Clone the repository**  
    ```bash
-   git clone https://github.com/muhfalihr/vegapunk-edison-bot-ticketing.git
+   git clone https://github.com/muhfalihr/VegapunkEdison-BotTicketing.git
    cd vegapunk-edison-bot-ticketing
    ```
 
@@ -133,7 +133,7 @@ bot:
   lang: id
 
   name: vegapunk-edison-bot-ticketing
-  image: muhfalihr/vegapunkedison-bot-ticketing:1.0.0
+  image: muhfalihr/vegapunkedison-bot-ticketing:1.0.1
   config:
     botToken: "<your-bot-token>"
     chatId: "<group-or-channel-id>"

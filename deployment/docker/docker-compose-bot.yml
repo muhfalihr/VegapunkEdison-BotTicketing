@@ -1,7 +1,7 @@
 services:
   vegapunk-edison-bot-ticketing:
     container_name: vegapunk-edison-bot-ticketing
-    image: muhfalihr/vegapunkedison-bot-ticketing:1.0.0
+    image: muhfalihr/vegapunkedison-bot-ticketing:1.0.1
     restart: unless-stopped
     volumes:
       - /path/to/config.yml:/vegapunk-app/config.yml
