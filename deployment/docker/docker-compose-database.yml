@@ -15,15 +15,6 @@ services:
     networks:
       - vegapunk-network
 
-  vegapunk-edison-bot-ticketing:
-    container_name: vegapunk-edison-bot-ticketing
-    image: muhfalihr/vegapunkedison-bot-ticketing:1.0.0
-    restart: unless-stopped
-    volumes:
-      - /path/to/config.yml:/vegapunk-app/config.yml
-    networks:
-      - vegapunk-network
-
 networks:
   vegapunk-network:
     driver: bridge
