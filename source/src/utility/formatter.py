@@ -20,6 +20,7 @@ class FormatType(Enum):
     ITALIC = auto()
     STRIKETHROUGH = auto()
     HEADER = auto()
+    URL = auto()
     LINK = auto()
     IMAGE = auto()
     LIST = auto()
@@ -47,7 +48,8 @@ class MarkdownFormatter:
             "h5": {"start": "##### ", "end": "\n", "type": FormatType.HEADER},
             "h6": {"start": "###### ", "end": "\n", "type": FormatType.HEADER},
             
-            # Links and images
+            # Url, Links and images
+            "url": {"start": "", "end": "", "type": FormatType.URL},
             "link": {"start": "[", "middle": "](", "end": ")", "type": FormatType.LINK},
             "image": {"start": "![", "middle": "](", "end": ")", "type": FormatType.IMAGE},
             
@@ -75,15 +77,19 @@ class MarkdownFormatter:
         underscore_indices = [i for i, char in enumerate(text_list) if char == "_"]
         for idx in underscore_indices:
             index = 0
-            for start, end in format_ranges:
+            for start, end, entity in format_ranges:
                 index += 1
                 try:
                     if not start <= idx < end and not format_ranges[index][0] <= idx < format_ranges[index][1]:
                         text_list[idx] = "\\_"
+                    
+                    format_type = self.formatting_types.get(entity.type)
+                    if format_type["type"] == FormatType.URL:
+                        text_list[idx] = "\\_"
+
                 except IndexError:
                     if not start <= idx < end:
                         text_list[idx] = "\\_"
-        return text_list
     
     def escape_undescores(self, text: str) -> str:
         """Escape undescores."""
@@ -133,9 +139,9 @@ class MarkdownFormatter:
         for entity in formatted_entities:
             format_range = self._apply_formatting(text_list, entity)
             if format_range:
-                format_ranges.append(format_range)
+                format_ranges.append(format_range + (entity,))
 
-        text_list = self._escape_underscores(text_list, format_ranges)
+        self._escape_underscores(text_list, format_ranges)
         return ''.join(text_list)
     
     def escape_markdown(self, text: str):
