@@ -29,6 +29,26 @@ messages:
     handling this issue with a response time of 4 working hours.
     Please wait a moment, our team will contact you shortly.
 
+  template_help: |
+    🤖 *{bot_name} Help Menu*  
+    An advanced Telegram-based ticketing system.
+
+    Use the commands below based on your role:
+
+    👤 *Client Commands*
+    `/start` – Start interaction with the bot and create a new support ticket.
+
+    🧑‍💼 *Handler Commands*
+    `/open` – Claim or open a ticket to start handling the issue.  
+    `/close` – Mark the current ticket as resolved and close it.  
+    `/conversation` – View the current conversation in the ticket.  
+    `/history` – Display a list of previously resolved or closed tickets.
+
+    🛡️ *Admin Commands*
+    `/regist` – Register a new handler (support agent) to the system.  
+    `/deregist` – Deregister or remove an existing handler.  
+    `/handlers` – View a list of currently registered handlers.
+  
   template_ticket_message: |
     🎫 *Ticket* #{ticket_id}
 
@@ -106,14 +126,6 @@ messages:
   template_reply_closed_ticket: |
     🚫 *ACTION DENIED*: 🎫 Ticket is already closed.
     Closed by 🪪 @{username} ⏱️ `{datetime}`.
-  
-  template_help_private: |
-    /start
-  
-  template_help_group: |
-    /open
-    /close
-    /conversation
   
   template_empty_history: |
     📭 No Tickets Handled!

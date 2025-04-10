@@ -28,6 +28,26 @@ messages:
     Kami memahami urgensi laporan Anda. Tim kami akan memprioritaskan 
     penanganan masalah ini dengan response time 4 jam kerja.
     Mohon tunggu sebentar, tim kami akan segera menghubungi Anda.
+  
+  template_help: |
+    🤖 *Menu Bantuan {bot_name}*  
+    Sistem tiket berbasis Telegram yang canggih.
+
+    Gunakan perintah di bawah ini sesuai dengan peran Anda:
+
+    👤 *Perintah Klien*  
+    `/start` – Mulai interaksi dengan bot dan buat tiket dukungan baru.
+
+    🧑‍💼 *Perintah Handler*  
+    `/open` – Klaim atau buka tiket untuk mulai menangani masalah.  
+    `/close` – Tandai tiket saat ini sebagai selesai dan tutup.  
+    `/conversation` – Lihat percakapan saat ini dalam tiket.  
+    `/history` – Tampilkan daftar tiket yang telah diselesaikan atau ditutup sebelumnya.
+
+    🛡️ *Perintah Admin*  
+    `/regist` – Daftarkan handler (support agent) baru ke dalam sistem.  
+    `/deregist` – Hapus handler yang sudah terdaftar.  
+    `/handlers` – Lihat daftar handler yang sedang terdaftar.
 
   template_ticket_message: |
     🎫 *Ticket* #{ticket_id}
@@ -106,14 +126,6 @@ messages:
   template_reply_closed_ticket: |
     🚫 *ACTION DENIED*: 🎫 Tiket sudah ditutup.
     Ditutup oleh 🪪 @{username} ⏱️ `{datetime}`.
-  
-  template_help_private: |
-    /start
-  
-  template_help_group: |
-    /open
-    /close
-    /conversation
   
   template_empty_history: |
     📭 Tidak Ada Tiket Yang Ditangani!

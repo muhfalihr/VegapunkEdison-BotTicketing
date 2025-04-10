@@ -9,6 +9,7 @@ class MessagesTemplate:
     reply_message_private: str
     reply_additional_message_private: str
     urgent_issue_messagge: str
+    template_help: str
     template_ticket_message: str
     template_ticket_message_admin: str
     template_reply_bot_message: str
@@ -27,8 +28,6 @@ class MessagesTemplate:
     template_user_not_handler: str
     template_not_reply_bot: str
     template_reply_closed_ticket: str
-    template_help_private: str
-    template_help_group: str
     template_empty_history: str
     template_history: str
     template_list_history: str

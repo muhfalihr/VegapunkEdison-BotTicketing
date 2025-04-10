@@ -51,7 +51,7 @@ class BotTicketing(HandlerMessages):
 
         @self.telebot.message_handler(commands=["help"], chat_types=["private", "group", "supergroup"])
         async def help_handler(message):
-            ...
+            await self.handler_help(message)
 
         @self.telebot.message_handler(commands=["regist"])
         async def regist_handler(message):

@@ -9,17 +9,17 @@ class SetupMessage:
         pass
 
     @staticmethod
-    def _create_message(content: str, parse_mode: Literal["HTML", "Markdown"], mode: Literal["private", "group"]) -> Messages:
+    def _create_message(content: str, parse_mode: Literal["HTML", "Markdown"]) -> Messages:
         """Create message for telegram bot ticketing"""
         return Messages(**arson(text=content, parse_mode=parse_mode))
     
     def privcommon(self, content: str) -> Messages:
-        return self._create_message(content, "Markdown", "private")
+        return self._create_message(content, "Markdown")
     
     def groupcommon(self, content: str, **kwargs) -> Messages:
         if not kwargs:
-            return self._create_message(content, "Markdown", "group")
-        return self._create_message(content.format(**kwargs), "Markdown", "group")
+            return self._create_message(content, "Markdown")
+        return self._create_message(content.format(**kwargs), "Markdown")
     
     def open(self, opened_tickets: List[OpenedTickets], template1: str, template2: str, **kwargs) -> Messages:
         func = kwargs.get("func")
@@ -44,15 +44,15 @@ class SetupMessage:
             )
         
         content = template1.format(list_open_tickets=opened_tickets_messages)
-        return self._create_message(content, "Markdown", "group")
+        return self._create_message(content, "Markdown")
 
     def replay_message(self, text: str, **kwargs) -> Messages:
         content: str = text.format(**kwargs)
-        return self._create_message(content, "Markdown", "private")
+        return self._create_message(content, "Markdown")
     
     def reply_message_group(self, text: str, **kwargs) -> Messages:
         content: str = text.format(**kwargs)
-        return self._create_message(content, "Markdown", "group")
+        return self._create_message(content, "Markdown")
     
     def conversation_message(self, template: str, content_template: str, **kwargs):
         contents = kwargs.get("contents")
@@ -75,7 +75,7 @@ class SetupMessage:
             )
         
         full_content = template.format(ticket_id=ticket_id, conversation=conversation)
-        return self._create_message(full_content, "Markdown", "group")
+        return self._create_message(full_content, "Markdown")
 
 
     def history_message(self, template: str, content_template: str, contents: List[HistoryHandlerTickets]):
@@ -91,7 +91,7 @@ class SetupMessage:
             )
         
         full_content = template.format(history_handling_tickets=histories)
-        return self._create_message(full_content, "Markdown", "group")
+        return self._create_message(full_content, "Markdown")
 
     def handlers_message(self, template: str, content_template: str, contents: List[Handlers], **kwargs):
         func = kwargs.get("func")
@@ -107,4 +107,4 @@ class SetupMessage:
             )
         
         full_content = template.format(user_handlers=handlers)
-        return self._create_message(full_content, "Markdown", "group")
+        return self._create_message(full_content, "Markdown")

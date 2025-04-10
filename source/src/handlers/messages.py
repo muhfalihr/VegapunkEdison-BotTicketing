@@ -618,8 +618,30 @@ class HandlerMessages:
         )
     
 
-    async def handler_help_private(self):
-        ...
+    async def handler_help(self, message: Message):
+        """
+        Handle /help command.
+
+        Args:
+            message (Message): The message containing the command
+        
+        Returns:
+            Message
+        """
+        try:
+            initial_message = self.messages.reply_message_group(
+                text=self.template.messages.template_help,
+                bot_name=self.config.bot.name
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
+        except Exception as e:
+            self.logger.error(f"Error handling help message: {e}")
+        
+        return message
 
 
     async def handler_message_start(self, message: Message) -> Message:
@@ -627,7 +649,7 @@ class HandlerMessages:
         Handle /start command.
         
         Args:
-            message: The message containing the command
+            message (Message): The message containing the command
             
         Returns:
             The original message
