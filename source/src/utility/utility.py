@@ -60,11 +60,10 @@ def reltime(past_time: datetime) -> str:
         A human-readable string like "5 minutes ago" or "3 months ago"
     """
     if past_time.tzinfo is None:
-        past_time = past_time.replace(tzinfo=timezone.utc)
-    
-    datetime_now = datetime.now(timezone.utc)
+        past_time = past_time.replace()
+
+    datetime_now = datetime.now()
     diff = datetime_now - past_time
-    
     seconds_diff = diff.total_seconds()
     
     if seconds_diff < 60:

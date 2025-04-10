@@ -77,19 +77,14 @@ class MarkdownFormatter:
         underscore_indices = [i for i, char in enumerate(text_list) if char == "_"]
         for idx in underscore_indices:
             index = 0
-            for start, end, entity in format_ranges:
+            for start, end in format_ranges:
                 index += 1
                 try:
-                    if not start <= idx < end and not format_ranges[index][0] <= idx < format_ranges[index][1]:
-                        text_list[idx] = "\\_"
-                    
-                    format_type = self.formatting_types.get(entity.type)
-                    if format_type["type"] == FormatType.URL:
+                    if not (start <= idx < end) and not format_ranges[index][0] <= idx < format_ranges[index][1]:
                         text_list[idx] = "\\_"
 
                 except IndexError:
-                    if not start <= idx < end:
-                        text_list[idx] = "\\_"
+                    ...
     
     def escape_undescores(self, text: str) -> str:
         """Escape undescores."""
@@ -136,10 +131,10 @@ class MarkdownFormatter:
         formatted_entities.sort(key=lambda x: x.offset, reverse=True)
         
         format_ranges = []
-        for entity in formatted_entities:
+        for entity in formatted_entities:                  
             format_range = self._apply_formatting(text_list, entity)
             if format_range:
-                format_ranges.append(format_range + (entity,))
+                format_ranges.append(format_range)
 
         self._escape_underscores(text_list, format_ranges)
         return ''.join(text_list)

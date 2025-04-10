@@ -655,7 +655,7 @@ class HandlerMessages:
             message (Message): The message to handle
         """
         try:
-            message_content = message.text or message.caption or ""
+            message_content = (message.text or message.caption or "")
             
             if len(message_content) > 4000:
                 initial_message = self.messages.privcommon(
@@ -670,7 +670,7 @@ class HandlerMessages:
             invalid_words = set(INVALID_MESSAGE_IN_USER.split(","))
             bad_words = set(BAD_WORDS.split(","))
             
-            if any(word in message_content for word in invalid_words):
+            if any(word == message_content for word in invalid_words):
                 initial_message = self.messages.privcommon(self.template.messages.template_invalid_message)
                 await self.telebot.reply_to(
                     message=message,
@@ -793,8 +793,8 @@ class HandlerMessages:
             message (Message): The message to handle
         """
         try:
-            text = (message.text or message.caption)
-            if len(text) > 4000:
+            message_content = (message.text or message.caption or "")
+            if len(message_content) > 4000:
                 return await self._send_error_response(
                     message=message,
                     template=self.template.messages.template_length_too_long_message
