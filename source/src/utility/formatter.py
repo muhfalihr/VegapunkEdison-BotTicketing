@@ -1,6 +1,6 @@
 import re
 
-from typing import List, Dict, Union, Optional
+from typing import List, Dict, Any, Union, Optional
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -23,10 +23,13 @@ class FormatType(Enum):
     URL = auto()
     LINK = auto()
     IMAGE = auto()
-    LIST = auto()
     QUOTE = auto()
     BLOCKQUOTE = auto()
-    TABLE = auto()
+
+@dataclass
+class TypeEntities:
+    type: FormatType
+    entity: Dict[tuple, tuple]
 
 class MarkdownFormatter:
     def __init__(self):
@@ -52,18 +55,10 @@ class MarkdownFormatter:
             "url": {"start": "", "end": "", "type": FormatType.URL},
             "link": {"start": "[", "middle": "](", "end": ")", "type": FormatType.LINK},
             "image": {"start": "![", "middle": "](", "end": ")", "type": FormatType.IMAGE},
-            
-            # Lists
-            "bullet": {"start": "- ", "end": "\n", "type": FormatType.LIST},
-            "numbered": {"start": "1. ", "end": "\n", "type": FormatType.LIST},
-            
+
             # Quotes and horizontal rules
             "blockquote": {"start": "> ", "end": "\n", "type": FormatType.BLOCKQUOTE},
             "hr": {"start": "---", "end": "\n", "type": FormatType.QUOTE},
-            
-            # Tables
-            "table_header": {"start": "|", "end": "|\n|---|\n", "type": FormatType.TABLE},
-            "table_row": {"start": "|", "end": "|\n", "type": FormatType.TABLE}
         }
 
     def _convert_to_formatting_entity(self, entity: Union[Dict, FormattingEntity]) -> FormattingEntity:
@@ -72,19 +67,31 @@ class MarkdownFormatter:
             return FormattingEntity(**entity)
         return entity
 
-    def _escape_underscores(self, text_list: List[str], format_ranges: List[tuple]) -> None:
+    def _escape_underscores(self, text_list: List[str], format_ranges: List[TypeEntities]) -> None:
         """Escape underscores within the specified ranges."""
         underscore_indices = [i for i, char in enumerate(text_list) if char == "_"]
+        if not underscore_indices:
+            return
+        
+        protected_indices = set()
+        
+        for entity in format_ranges:
+            try:
+                format_type = entity.type
+                start_idx = entity.entity[1][0]
+                end_idx = entity.entity[0][-1]
+                
+                for idx in underscore_indices:
+                    if start_idx <= idx < end_idx:
+                        if format_type == FormatType.URL:
+                            text_list[idx] = "\\_"
+                        protected_indices.add(idx)
+            except (IndexError, AttributeError, TypeError) as e:
+                continue
+        
         for idx in underscore_indices:
-            index = 0
-            for start, end in format_ranges:
-                index += 1
-                try:
-                    if not (start <= idx < end) and not format_ranges[index][0] <= idx < format_ranges[index][1]:
-                        text_list[idx] = "\\_"
-
-                except IndexError:
-                    ...
+            if idx not in protected_indices:
+                text_list[idx] = "\\_"
     
     def escape_undescores(self, text: str) -> str:
         """Escape undescores."""
@@ -98,12 +105,19 @@ class MarkdownFormatter:
 
         start = entity.offset
         end = start + entity.length
+        start_ = None
+        end_ = None
+
         entity_language = entity.language or "copy"
 
         if format_type["type"] == FormatType.PRE and entity_language:
             opening = f"{format_type['start']}{entity_language}\n"
-            text_list.insert(end, f"\n{format_type['end']}")
+            ended = f"\n{format_type['end']}"
+            text_list.insert(end, ended)
+            end_ = ( ( end + len(ended) ) - 1 )
             text_list.insert(start, opening)
+            start_ = ( ( start + len(opening)) - 1 )
+
         elif format_type["type"] in {FormatType.LINK, FormatType.IMAGE}:
             title = f' "{entity.title}"' if entity.title else ''
             text_list.insert(end, format_type['middle'] + entity.url + title + format_type['end'])
@@ -111,8 +125,11 @@ class MarkdownFormatter:
         else:
             text_list.insert(end, format_type['end'])
             text_list.insert(start, format_type['start'])
-
-        return (start, end)
+        
+        return TypeEntities(**{
+            "type": format_type["type"],
+            "entity": ( (end, end_,), (start, start_,) ) if end_ and start_ else ( (end,), (start,) )
+        })
 
     def format_text(self, text: str, entities: List[Union[Dict, FormattingEntity]]) -> str:
         """
@@ -130,13 +147,13 @@ class MarkdownFormatter:
         formatted_entities = [self._convert_to_formatting_entity(entity) for entity in entities]
         formatted_entities.sort(key=lambda x: x.offset, reverse=True)
         
-        format_ranges = []
+        detail_applyings = []
         for entity in formatted_entities:                  
-            format_range = self._apply_formatting(text_list, entity)
-            if format_range:
-                format_ranges.append(format_range)
-
-        self._escape_underscores(text_list, format_ranges)
+            detail_applying = self._apply_formatting(text_list, entity)
+            if detail_applying:
+                detail_applyings.append(detail_applying)
+        
+        self._escape_underscores(text_list, detail_applyings)
         return ''.join(text_list)
     
     def escape_markdown(self, text: str):

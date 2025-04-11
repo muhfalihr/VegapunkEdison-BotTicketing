@@ -822,17 +822,20 @@ class HandlerMessages:
                     template=self.template.messages.template_length_too_long_message
                 )
             
+            if message.from_user.id not in self.handler_admin_ids:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_user_not_handler
+                )
+
             if not message.reply_to_message:
                 return await self._send_error_response(
                     message=message,
                     template=self.template.messages.template_must_reply_ticket
                 )
             
-            if message.from_user.id not in self.handler_admin_ids:
-                return await self._send_error_response(
-                    message=message,
-                    template=self.template.messages.template_user_not_handler
-                )
+            if message.reply_to_message.from_user.id != self.config.telegram.bot_id:
+                return
 
             reply_text = (message.reply_to_message.text or message.reply_to_message.caption)
             matches = search(reply_text, MESSAGE_PATTERN)
@@ -950,18 +953,18 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_user_not_handler
-            )
-
         if not message.reply_to_message:
             return await self._send_error_response(
                 message=message,
                 template=self.template.messages.template_close_ticket_not_reply
             )
         
+        if message.from_user.id not in self.handler_admin_ids:
+            return await self._send_error_response(
+                message=message,
+                template=self.template.messages.template_user_not_handler
+            )
+
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
         if not matches:
@@ -1014,17 +1017,17 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_user_not_handler
-            )
-        
         if not message.reply_to_message:
             return await self._send_error_response(
                 message=message,
                 template=self.template.messages.template_must_reply_ticket
             )
+        
+        if message.from_user.id not in self.handler_admin_ids:
+            return await self._send_error_response(
+                message=message,
+                template=self.template.messages.template_user_not_handler
+            )        
 
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
@@ -1134,6 +1137,12 @@ class HandlerMessages:
         Returns:
             None
         """
+        if not message.reply_to_message:
+            return await self._send_error_response(
+                message=message,
+                template=self.template.messages.template_must_reply_to_message
+            )
+        
         if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
             return await self._send_error_response(
                 message=message,
@@ -1144,12 +1153,6 @@ class HandlerMessages:
             return await self._send_error_response(
                 message=message,
                 template=self.template.messages.template_admin_only
-            )
-        
-        if not message.reply_to_message:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_must_reply_to_message
             )
         
         message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
@@ -1228,6 +1231,12 @@ class HandlerMessages:
         Returns:
             None
         """
+        if not message.reply_to_message:
+            return await self._send_error_response(
+                message=message,
+                template=self.template.messages.template_must_reply_to_message
+            )
+        
         if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
             return await self._send_error_response(
                 message=message,
@@ -1238,12 +1247,6 @@ class HandlerMessages:
             return await self._send_error_response(
                 message=message,
                 template=self.template.messages.template_admin_only
-            )
-        
-        if not message.reply_to_message:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_must_reply_to_message
             )
         
         message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
