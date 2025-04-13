@@ -80,7 +80,7 @@ class MarkdownFormatter:
                 format_type = entity.type
                 start_idx = entity.entity[1][0]
                 end_idx = entity.entity[0][-1]
-                
+
                 for idx in underscore_indices:
                     if start_idx <= idx < end_idx:
                         if format_type == FormatType.URL:

@@ -976,6 +976,19 @@ class HandlerMessages:
         ticket_id = matches.group(1)
         username = matches.group(3)
 
+        closed_ticket = await self.tickets.get_closed_ticket_by_ticketid(ticket_id)
+        if closed_ticket:
+            initial_message = self.messages.reply_message_group(
+                self.template.messages.template_reply_closed_ticket,
+                username=closed_ticket.handler_username,
+                datetime=closed_ticket.closed_at
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+
         user_id = await self.tickets.get_userid_by_username(username)
 
         timestamp = epodate(message.date)
