@@ -179,7 +179,7 @@ class HandlerMessages:
             if not text:
                 return "..."
             
-            return (self.markdown.escape_undescores(text) if not entities else 
+            return (self.markdown.escape_markdown(text) if not entities else 
                     self.markdown.format_text(text, [FormattingEntity(**entity) for entity in entities]))
         
         elif message.content_type in ["document", "photo", "video"]:
@@ -196,7 +196,7 @@ class HandlerMessages:
             if not caption:
                 return "..."
             
-            return (self.markdown.escape_undescores(caption) if not caption_entities else 
+            return (self.markdown.escape_markdown(caption) if not caption_entities else 
                     self.markdown.format_text(caption, [FormattingEntity(**entity) for entity in caption_entities]))
         
         return "..."
@@ -285,6 +285,7 @@ class HandlerMessages:
             Message: The sent message object.
         """
         message_text = self._get_formatted_message_text(message)
+        print(message_text)
         
         full_name = self.markdown.escape_undescores(message.from_user.full_name)
         username_ = self.markdown.escape_undescores(message.from_user.username)
