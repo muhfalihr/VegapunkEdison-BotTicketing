@@ -137,7 +137,3 @@ class BotTicketing(HandlerMessages):
             except Exception as e:
                 logger.error(f"Polling error: {e}", exc_info=True)
                 raise
-
-if __name__ == "__main__":
-    bt = BotTicketing()
-    asyncio.run(bt.start_polling())

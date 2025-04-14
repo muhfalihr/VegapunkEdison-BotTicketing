@@ -216,7 +216,7 @@ class HandlerMessages:
             timestamp = epodate(message.date)
             message_text = self._get_formatted_message_text(message)
 
-            full_name = self.markdown.escape_undescores(message.from_user.full_name)
+            full_name = message.from_user.full_name
             username = self.markdown.escape_undescores(message.from_user.username)
             
             initial_message = self.messages.replay_message(
@@ -285,9 +285,8 @@ class HandlerMessages:
             Message: The sent message object.
         """
         message_text = self._get_formatted_message_text(message)
-        print(message_text)
         
-        full_name = self.markdown.escape_undescores(message.from_user.full_name)
+        full_name = message.from_user.full_name
         username_ = self.markdown.escape_undescores(message.from_user.username)
         
         initial_message = self.messages.replay_message(
