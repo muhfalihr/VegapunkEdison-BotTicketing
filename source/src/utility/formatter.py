@@ -86,12 +86,11 @@ class MarkdownFormatter:
         url_pattern = re.compile(r"\b(?:https?|ftp):\/\/(?=[^ \n]*_)[a-zA-Z0-9.\-]+(?::\d+)?(?:\/[a-zA-Z0-9\-._~%!$&'()*+,;=:@\/?#[\]=]*)?")
         for match in url_pattern.finditer(text):
             start, end = match.start(), match.end()
-            if start not in range(start_idx, end_idx) or end not in range(start_idx, end_idx):
-                for i in range(start, end):
-                    protected_indices.add(i)
+            for i in range(start, end):
+                protected_indices.add(i)
 
-                escaped_url = match.group(0).replace("_", "\\_")
-                text_list[start:end] = list(escaped_url)
+            escaped_url = match.group(0).replace("_", "\\_")
+            text_list[start:end] = list(escaped_url)
 
         for i, char in enumerate(text_list):
             if i in protected_indices:
@@ -165,7 +164,6 @@ class MarkdownFormatter:
                 applied_ranges.append(applied)
 
         self._escape_markdown(text_list, applied_ranges)
-        print(''.join(text_list))
         return ''.join(text_list)
     
     def escape_markdown(self, text: str):

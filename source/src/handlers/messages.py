@@ -73,38 +73,35 @@ class HandlerMessages:
             message_type: Type of message to send (text, document, photo)
             media_id: File ID for media messages
         """
-        try:
-            if message_type == "text":
-                msg: Message = await self.telebot.send_message(
-                    chat_id=chat_id, 
-                    text=message_obj.text, 
-                    parse_mode=message_obj.parse_mode
-                )
-            elif message_type == "document":
-                msg: Message = await self.telebot.send_document(
-                    chat_id=chat_id,
-                    document=media_id,
-                    caption=message_obj.text,
-                    parse_mode=message_obj.parse_mode
-                )
-            elif message_type == "photo":
-                msg: Message = await self.telebot.send_photo(
-                    chat_id=chat_id,
-                    photo=media_id,
-                    caption=message_obj.text,
-                    parse_mode=message_obj.parse_mode
-                )
-            elif message_type == "video":
-                msg: Message = await self.telebot.send_video(
-                    chat_id=chat_id,
-                    video=media_id,
-                    caption=message_obj.text,
-                    parse_mode=message_obj.parse_mode
-                )
-            
-            return msg
-        except Exception as e:
-            self.logger.error(f"Error sending message: {e}")
+        if message_type == "text":
+            msg: Message = await self.telebot.send_message(
+                chat_id=chat_id, 
+                text=message_obj.text, 
+                parse_mode=message_obj.parse_mode
+            )
+        elif message_type == "document":
+            msg: Message = await self.telebot.send_document(
+                chat_id=chat_id,
+                document=media_id,
+                caption=message_obj.text,
+                parse_mode=message_obj.parse_mode
+            )
+        elif message_type == "photo":
+            msg: Message = await self.telebot.send_photo(
+                chat_id=chat_id,
+                photo=media_id,
+                caption=message_obj.text,
+                parse_mode=message_obj.parse_mode
+            )
+        elif message_type == "video":
+            msg: Message = await self.telebot.send_video(
+                chat_id=chat_id,
+                video=media_id,
+                caption=message_obj.text,
+                parse_mode=message_obj.parse_mode
+            )
+        
+        return msg
 
     async def _sender_message_reply(self, chat_id: int,  message: Message, initial_message: Messages) -> None:
         """
@@ -118,18 +115,15 @@ class HandlerMessages:
         Returns:
             None
         """
-        try:
-            if message.content_type == "text":
-                msg: Message = await self._send_message(chat_id, initial_message)
-            elif message.content_type == "document":
-                msg: Message = await self._send_message(chat_id, initial_message, "document", message.document.file_id)
-            elif message.content_type == "photo":
-                msg: Message = await self._send_message(chat_id, initial_message, "photo", message.photo[-1].file_id)
-            elif message.content_type == "video":
-                msg: Message = await self._send_message(chat_id, initial_message, "video", message.video.file_id)
-            return msg
-        except Exception as e:
-            self.logger.error(f"Error in sender_message_reply: {e}")
+        if message.content_type == "text":
+            msg: Message = await self._send_message(chat_id, initial_message)
+        elif message.content_type == "document":
+            msg: Message = await self._send_message(chat_id, initial_message, "document", message.document.file_id)
+        elif message.content_type == "photo":
+            msg: Message = await self._send_message(chat_id, initial_message, "photo", message.photo[-1].file_id)
+        elif message.content_type == "video":
+            msg: Message = await self._send_message(chat_id, initial_message, "video", message.video.file_id)
+        return msg
 
     async def _sender_message_media_group_reply(
             self, 
@@ -161,6 +155,24 @@ class HandlerMessages:
         except Exception as e:
             self.logger.error(f"Error sending media group: {e}")
     
+    def _safe_format_markdown(self, text: str, entities: list) -> str:
+        """
+        Safely format text using markdown. Fallback to escaped markdown if error occurs.
+        
+        Args:
+            text: The raw text to format
+            entities: List of formatting entities
+        
+        Returns:
+            Formatted markdown text or fallback text
+        """
+        try:
+            return self.markdown.format_text(text, [FormattingEntity(**entity) for entity in entities])
+        except Exception as e:
+            self.logger.error(f"[MarkdownFormatError] {e}")
+            return self.markdown.escape_markdown(text)
+
+    
     def _get_formatted_message_text(self, message: Message) -> str:
         """
         Extract and format message text from different message types.
@@ -180,7 +192,7 @@ class HandlerMessages:
                 return "..."
             
             return (self.markdown.escape_markdown(text) if not entities else 
-                    self.markdown.format_text(text, [FormattingEntity(**entity) for entity in entities]))
+                    self._safe_format_markdown(text, entities))
         
         elif message.content_type in ["document", "photo", "video"]:
             if message.content_type == "document":
@@ -197,7 +209,7 @@ class HandlerMessages:
                 return "..."
             
             return (self.markdown.escape_markdown(caption) if not caption_entities else 
-                    self.markdown.format_text(caption, [FormattingEntity(**entity) for entity in caption_entities]))
+                    self._safe_format_markdown(caption, caption_entities))
         
         return "..."
     
@@ -215,17 +227,27 @@ class HandlerMessages:
         try:
             timestamp = epodate(message.date)
             message_text = self._get_formatted_message_text(message)
+            message_text_non_format = self.markdown.escape_markdown(message.text or message.caption or "...")
 
             full_name = message.from_user.full_name
             username = self.markdown.escape_undescores(message.from_user.username)
             
-            initial_message = self.messages.replay_message(
+            initial_message_format = self.messages.replay_message(
                 self.template.messages.template_ticket_message, 
                 ticket_id=ticket_id,
                 user_name=full_name,
                 username=username,
                 timestamp=timestamp,
                 message=message_text,
+            )
+
+            initial_message_non_format = self.messages.replay_message(
+                self.template.messages.template_ticket_message, 
+                ticket_id=ticket_id,
+                user_name=full_name,
+                username=username,
+                timestamp=timestamp,
+                message=message_text_non_format,
             )
             
             if getattr(message, 'media_group_id', None):
@@ -235,38 +257,66 @@ class HandlerMessages:
                     media_store = self.storage.temp.get(f"photo_{media_group_id}")
                     
                     if media_store and hasattr(media_store, 'medias'):
-                        msg: Message = await self._sender_message_media_group_reply(
-                            chat_id=self.config.telegram.chat_id, 
-                            medias=media_store.medias, 
-                            initial_message=initial_message
-                        )
+                        try:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_format
+                            )
+                        except:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_non_format
+                            )
                 
                 elif hasattr(message, 'video') and message.video:
                     media_store = self.storage.temp.get(f"video_{media_group_id}")
                     
                     if media_store and hasattr(media_store, 'medias'):
-                        msg: Message = await self._sender_message_media_group_reply(
-                            chat_id=self.config.telegram.chat_id, 
-                            medias=media_store.medias, 
-                            initial_message=initial_message
-                        )
+                        try:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_format
+                            )
+                        except:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_non_format
+                            )
 
                 elif hasattr(message, 'document') and message.document:
                     media_store = self.storage.temp.get(f"document_{media_group_id}")
                     
                     if media_store and hasattr(media_store, 'medias'):
-                        msg: Message = await self._sender_message_media_group_reply(
-                            chat_id=self.config.telegram.chat_id, 
-                            medias=media_store.medias, 
-                            initial_message=initial_message
-                        )
+                        try:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_format
+                            )
+                        except:
+                            msg: Message = await self._sender_message_media_group_reply(
+                                chat_id=self.config.telegram.chat_id, 
+                                medias=media_store.medias, 
+                                initial_message=initial_message_non_format
+                            )
                         
             else:
-                msg: Message = await self._sender_message_reply(
-                    chat_id=self.config.telegram.chat_id, 
-                    message=message, 
-                    initial_message=initial_message
-                )
+                try:
+                    msg: Message = await self._sender_message_reply(
+                        chat_id=self.config.telegram.chat_id, 
+                        message=message, 
+                        initial_message=initial_message_format
+                    )
+                except:
+                    msg: Message = await self._sender_message_reply(
+                        chat_id=self.config.telegram.chat_id, 
+                        message=message, 
+                        initial_message=initial_message_non_format
+                    )
             return msg
         except Exception as e:
             self.logger.error(f"Error sending to group: {e}")
