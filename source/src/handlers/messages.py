@@ -695,12 +695,20 @@ class HandlerMessages:
             template: Message template
             **kwargs: Additional formatting arguments
         """
-        initial_message = self.messages.groupcommon(template, **kwargs)
-        await self.telebot.reply_to(
-            message=message,
-            text=initial_message.text,
-            parse_mode=initial_message.parse_mode
-        )
+        if isinstance(message, Message):
+            initial_message = self.messages.groupcommon(template, **kwargs)
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
+        elif isinstance(message, CallbackQuery):
+            initial_message = self.messages.groupcommon(template, **kwargs)
+            await self.telebot.send_message(
+                chat_id=message.message.chat.id,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            )
     
 
     async def handler_help(self, message: Message):
