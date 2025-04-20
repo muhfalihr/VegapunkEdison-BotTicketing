@@ -37,6 +37,8 @@ messages:
 
     👤 *Client Commands*
     `/start` – Start interaction with the bot and create a new support ticket.
+    `/conversation` – View the current conversation in the ticket.  
+    `/history` – Display a list of previously resolved or closed tickets.
 
     🧑‍💼 *Handler Commands*
     `/open` – Claim or open a ticket to start handling the issue.  
@@ -59,9 +61,12 @@ messages:
     {message}
   
   template_ticket_message_admin: |
-    💬 *Reply from* 🪪 `{user_name}` (@{username})
+    🎫 *Ticket* #{ticket_id}
 
-    📝 *Details:*
+    🪪 *{user_name}* (@{username})
+    ⏰ `{timestamp}`
+
+    📝 *Details :*
     {message}
   
   template_reply_bot_message: |
@@ -127,16 +132,21 @@ messages:
     🚫 *ACTION DENIED*: 🎫 Ticket is already closed.
     Closed by 🪪 @{username} ⏱️ `{datetime}`.
   
+  template_time_range_history: |
+    Select a ⏱ time range to view history 🗃.
+  
   template_empty_history: |
     📭 No Tickets Handled!
   
   template_history: |
-    🗃 History of Handling Tickets *( Today )* :{history_handling_tickets}
+    🗃 History of Handling Tickets *( {time_range} )* :{history_handling_tickets}
   
   template_list_history: |
     {space}🎫 *Ticket* #{ticket_id}
     {space}  ↳ 📊 *{status}*
-    {space}{space}   ⏰ `{timestamp}`
+    {space}{space}   🪪 @{username}
+    {space}{space}   ⏱ `{created_at}`
+    {space}{space}   ⏰ `{closed_at}`
 
   template_admin_only: |
     ⛔ *LIMITED ACCESS*: This command can only be used by _Administrators_.

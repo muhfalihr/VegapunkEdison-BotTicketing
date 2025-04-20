@@ -37,7 +37,7 @@ class BtAioMysql:
                 db=self.config.database.database,
                 charset='utf8mb4',
                 cursorclass=DictCursor,
-                autocommit=False,
+                autocommit=True,
                 minsize=1,
                 maxsize=self.pool_size,
                 connect_timeout=self.connect_timeout
@@ -118,14 +118,16 @@ class BtAioMysql:
         Returns:
             Single row as dictionary or None if no results.
         """
-        if not self.pool:
-            await self.connect()
-            
         async def _fetch():
-            async with self.pool.acquire() as conn:
+            if not self.pool:
+                await self.connect()
+            conn = await self.pool.acquire()
+            try:
                 async with conn.cursor() as cursor:
-                    await cursor.execute(query, params)
+                    await cursor.execute(query, params or ())
                     return await cursor.fetchone()
+            finally:
+                self.pool.release(conn)
 
         return await self._retry_on_failure(_fetch)
     
@@ -140,14 +142,16 @@ class BtAioMysql:
         Returns:
             List of rows as dictionaries.
         """
-        if not self.pool:
-            await self.connect()
-
         async def _fetch():
-            async with self.pool.acquire() as conn:
+            if not self.pool:
+                await self.connect()
+            conn = await self.pool.acquire()
+            try:
                 async with conn.cursor() as cursor:
-                    await cursor.execute(query, params)
+                    await cursor.execute(query, params or ())
                     return await cursor.fetchall()
+            finally:
+                self.pool.release(conn)
 
         return await self._retry_on_failure(_fetch)
     

@@ -8,7 +8,7 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot.storage import StateMemoryStorage
 from telebot import asyncio_helper
 
-from src.utility.const import COMMANDS
+from src.utility.const import COMMANDS, TIME_RANGES
 from src.localization.config import config
 from src.localization.template import template
 from src.utility.utility import invalid_command
@@ -86,15 +86,20 @@ class BotTicketing(HandlerMessages):
         
 
         @self.telebot.message_handler(commands=["conversation"], 
-                                      chat_types=["group", "supergroup"])
+                                      chat_types=["private", "group", "supergroup"])
         async def conversation_handler(message):
             await self.handler_conversation(message)
         
 
         @self.telebot.message_handler(commands=["history"], 
-                                      chat_types=["group", "supergroup"])
+                                      chat_types=["private", "group", "supergroup"])
         async def history_handler(message):
             await self.handler_history(message)
+        
+
+        @self.telebot.callback_query_handler(func=lambda call: True if call.data in TIME_RANGES.split(",") else False)
+        async def history_time_range_handler(call):
+            await self.handler_history_time_range(call)
         
 
         @self.telebot.message_handler(content_types=["text"], 

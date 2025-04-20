@@ -37,6 +37,8 @@ messages:
 
     👤 *Perintah Klien*  
     `/start` – Mulai interaksi dengan bot dan buat tiket dukungan baru.
+    `/conversation` – Lihat percakapan saat ini dalam tiket.  
+    `/history` – Tampilkan daftar tiket yang telah diselesaikan atau ditutup sebelumnya.
 
     🧑‍💼 *Perintah Handler*  
     `/open` – Klaim atau buka tiket untuk mulai menangani masalah.  
@@ -59,7 +61,10 @@ messages:
     {message}
   
   template_ticket_message_admin: |
-    💬 *Balasan dari* 🪪 `{user_name}` (@{username})
+    🎫 *Ticket* #{ticket_id}
+
+    🪪 *{user_name}* (@{username})
+    ⏰ `{timestamp}`
 
     📝 *Details :*
     {message}
@@ -127,16 +132,21 @@ messages:
     🚫 *ACTION DENIED*: 🎫 Tiket sudah ditutup.
     Ditutup oleh 🪪 @{username} ⏱️ `{datetime}`.
   
+  template_time_range_history: |
+    Select a ⏱ time range to view history 🗃.
+  
   template_empty_history: |
     📭 Tidak Ada Tiket Yang Ditangani!
   
   template_history: |
-    🗃 History Handling Tickets *( Today )* :{history_handling_tickets}
+    🗃 History Handling Tickets *( {time_range} )* :{history_handling_tickets}
   
   template_list_history: |
     {space}🎫 *Ticket* #{ticket_id}
     {space}  ↳ 📊 *{status}*
-    {space}{space}   ⏰ `{timestamp}`
+    {space}{space}   🪪 @{username}
+    {space}{space}   ⏱ `{created_at}`
+    {space}{space}   ⏰ `{closed_at}`
 
   template_admin_only: |
     ⛔ *AKSES TERBATAS*: Perintah ini hanya dapat digunakan oleh _Administrator_.

@@ -15,7 +15,6 @@ from enum import Enum
 @dataclass
 class MessagesStore:
     messages: List[Message]
-    ticket_id: str
     processed: bool = False
 
 

@@ -28,6 +28,7 @@ class MessagesTemplate:
     template_user_not_handler: str
     template_not_reply_bot: str
     template_reply_closed_ticket: str
+    template_time_range_history: str
     template_empty_history: str
     template_history: str
     template_list_history: str

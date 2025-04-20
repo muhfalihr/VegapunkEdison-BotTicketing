@@ -33,7 +33,7 @@ class SetupMessage:
             relative_time = reltime(ticket.created_at)
             
             username = func(ticket.username)
-            userfullname = func(ticket.userfullname)
+            userfullname = ticket.userfullname
 
             opened_tickets_messages += "\n" + template2.format(
                 ticket_id=ticket.ticket_id,
@@ -78,19 +78,23 @@ class SetupMessage:
         return self._create_message(full_content, "Markdown")
 
 
-    def history_message(self, template: str, content_template: str, contents: List[HistoryHandlerTickets]):
+    def history_message(self, template: str, content_template: str, contents: List[HistoryHandlerTickets], time_range: str):
         histories = "\n"
         space = (' ' * 3)
 
         for content in contents:
+            handler_username = content.handler_username
+            closed_at = content.closed_at
             histories += "\n" + content_template.format(
                 space=space,
+                username=handler_username if handler_username else "-",
                 ticket_id=content.ticket_id,
                 status=content.status.upper(),
-                timestamp=content.closed_at
+                created_at=content.created_at,
+                closed_at=closed_at if closed_at else "-"
             )
         
-        full_content = template.format(history_handling_tickets=histories)
+        full_content = template.format(time_range=time_range.title(), history_handling_tickets=histories)
         return self._create_message(full_content, "Markdown")
 
     def handlers_message(self, template: str, content_template: str, contents: List[Handlers], **kwargs):

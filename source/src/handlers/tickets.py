@@ -1,7 +1,7 @@
 import re
 import traceback
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from loguru import logger
 
 from src.localization.queries import (
@@ -28,6 +28,7 @@ from src.localization.queries import (
     GET_TICKET_MESSAGES,
     GET_USER_BY_USERNAME,
     GET_ALL_TICKET_MESSAGES,
+    GET_HISTORY_USER_TICKETS,
     GET_HISTORY_HANDLER_TICKETS,
     GET_CLOSED_TICKETS_BY_TICKETID
 )
@@ -55,6 +56,22 @@ class HandlerTickets(BtAioMysql):
         """
         super().__init__(pool_size, connect_timeout)
         self.logger = logger
+    
+    async def _query_time_range(self, column: str, time_range: str):
+        if not isinstance(column, str) and not isinstance(time_range, str):
+            raise TypeError("Both 'column' and 'time_range' must be strings.")
+        
+        if time_range == 'today':
+            date_filter = f"AND DATE({column}) = CURDATE()"
+        elif time_range == 'weekly':
+            date_filter = f"AND YEARWEEK({column}, 1) = YEARWEEK(CURDATE(), 1)"
+        elif time_range == 'monthly':
+            date_filter = f"AND YEAR({column}) = YEAR(CURDATE()) AND MONTH({column}) = MONTH(CURDATE())"
+        elif time_range == 'yearly':
+            date_filter = f"AND YEAR({column}) = YEAR(CURDATE())"
+        else:
+            raise ValueError("Invalid time range. Use 'today', 'weekly', 'monthly', or 'yearly'.")
+        return date_filter
     
     async def setup_tables(self, database: str, list_tables: List[str]) -> None:
         """
@@ -339,15 +356,15 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to retrieve ticket {ticket_id}: {str(e)}")
             raise
     
-    async def get_user_tickets_history(self, handler_id: int) -> List[HistoryHandlerTickets]:
+    async def get_handler_tickets_history(self, handler_id: int) -> List[HistoryHandlerTickets]:
         """
-        Retrieve the ticket history for a given user.
+        Retrieve the ticket history for a given handler.
 
         Args:
-            handler_id (int): The ID of the user whose ticket history is to be retrieved.
+            handler_id (int): The ID of the handler whose ticket history is to be retrieved.
 
         Returns:
-            List[HistoryHandlerTickets]: A list of HistoryHandlerTickets objects representing the user's ticket history.
+            List[HistoryHandlerTickets]: A list of HistoryHandlerTickets objects representing the handler's ticket history.
 
         Raises:
             Exception: If an error occurs while fetching the ticket history.
@@ -364,6 +381,38 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to retrieve tickets for user {handler_id}: {str(e)}")
             raise
     
+    async def get_user_tickets_history(self, user_id: int, time_range: str = "today") -> List[HistoryHandlerTickets]:
+        """
+        Retrieve the ticket history for a given user.
+
+        Args:
+            user_id (int): The ID of the user whose ticket history is to be retrieved.
+            time_range (str): Time Range
+
+        Returns:
+            List[HistoryHandlerTickets]: A list of HistoryHandlerTickets objects representing the user's ticket history.
+
+        Raises:
+            Exception: If an error occurs while fetching the ticket history.
+        """
+        try:
+            time_range_query = await self._query_time_range("created_at", time_range)
+            query = (
+                f"{GET_HISTORY_USER_TICKETS} "
+                f"{time_range_query} "
+                "ORDER BY created_at DESC"
+            )
+            result = await self.fetch_all(query, (user_id,))
+            tickets = [
+                HistoryHandlerTickets(**ticket)
+                for ticket in result
+            ]
+            self.logger.debug(f"Retrieved {len(tickets)} tickets for handler user {user_id}")
+            return tickets
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve tickets for user {user_id}: {str(e)}")
+            raise
+
     async def get_user_details_by_id(self, id: int):
         """
         Retrieve user details by their ID.

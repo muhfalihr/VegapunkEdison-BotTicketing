@@ -3,7 +3,7 @@ import asyncio
 from loguru import logger
 from typing import List, Dict, Any, Optional, Union
 from telebot.async_telebot import AsyncTeleBot
-from telebot.types import Message, LinkPreviewOptions
+from telebot.types import Message, CallbackQuery
 from telebot.types import (
     InputMedia, 
     InputMediaAnimation, 
@@ -16,7 +16,8 @@ from telebot.types import (
 from src.utility.const import (
     INVALID_MESSAGE_IN_USER, 
     BAD_WORDS, 
-    MESSAGE_PATTERN
+    MESSAGE_PATTERN,
+    TIME_RANGES
 )
 
 from src.types.config import Config
@@ -32,6 +33,7 @@ from src.types.messages import (
 )
 from src.utility.formatter import MarkdownFormatter, FormattingEntity
 from src.utility.utility import generate_id, epodate, chakey, arson, search
+from src.utility.markup import keyboard_markup
 from src.handlers.tickets import HandlerTickets
 from src.controller.issue_generator import IssueGenerator
 from src.controller.message import SetupMessage
@@ -322,7 +324,7 @@ class HandlerMessages:
             self.logger.error(f"Error sending to group: {e}")
     
 
-    async def _send_to_private(self, message: Message, from_group: bool = False, username: str = None) -> Message:
+    async def _send_to_private(self, message: Message, ticket_id: str, from_group: bool = False, username: str = None) -> Message:
         """
         Send a message to a private chat.
 
@@ -336,14 +338,17 @@ class HandlerMessages:
         """
         message_text = self._get_formatted_message_text(message)
         
+        timestamp = epodate(message.date)
         full_name = message.from_user.full_name
         username_ = self.markdown.escape_undescores(message.from_user.username)
         
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_ticket_message_admin,
+            ticket_id=ticket_id,
             user_name=full_name,
             username=username_,
-            message=message_text
+            message=message_text,
+            timestamp=timestamp
         )
         message_from_user_id = message.from_user.id
         if from_group:
@@ -405,7 +410,7 @@ class HandlerMessages:
             chat_id, message, initial_message
         )
 
-    async def _process_media_groups_after_delay(self, media_group_id: str) -> None:
+    async def _process_media_groups_after_delay(self, message_origin: Message, media_group_id: str) -> None:
         """
         Process a media group after a short delay to collect all media.
         
@@ -418,13 +423,12 @@ class HandlerMessages:
         Raises:
             Exception: If there is an error during message processing or sending.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.01)
 
         try:
             group_data: MessagesStore = self.storage.temp.get(media_group_id)
 
             if group_data and not group_data.processed:
-                ticket_id = group_data.ticket_id
                 messages = group_data.messages
 
                 if not messages:
@@ -442,8 +446,78 @@ class HandlerMessages:
                         _message = message
                         break
 
-                msg: Union[Message,List[Message]] = await self._send_to_group(ticket_id=ticket_id, message=_message)
+                ticket_id = generate_id(_message.from_user.id)
+                initial_message = self.messages.replay_message(
+                    self.template.messages.reply_message_private, 
+                    ticket_id=ticket_id,
+                    bot_name=self.config.bot.name
+                )
+
+                user_tickets = await self.tickets.get_user_tickets(_message.from_user.id)
+                ticket_open = next(iter(user_tickets), None)
+
+                if not ticket_open:
+                    await self.telebot.reply_to(
+                        message=message_origin,
+                        text=initial_message.text,  
+                        parse_mode=initial_message.parse_mode
+                    )
+
+                    msg: Union[Message,List[Message]] = await self._send_to_group(ticket_id=ticket_id, message=_message)
+                    
+                    issue = await self.issue_generator.issue_generator(_message)
+                    await self.tickets.create_ticket(
+                        ticket_id=ticket_id,
+                        user_id=_message.from_user.id,
+                        message_id=msg[-1].id,
+                        message_chat_id=msg[-1].chat.id,
+                        username=_message.from_user.username,
+                        userfullname=_message.from_user.full_name,
+                        issue=issue,
+                        timestamp=_message.date
+                    )
+
+                    if isinstance(msg, list):
+                        for m in msg:
+                            await self.tickets.add_message_to_ticket(
+                                ticket_id=ticket_id,
+                                user_id=_message.from_user.id,
+                                message_id=m.id,
+                                message_chat_id=m.chat.id,
+                                username=_message.from_user.username,
+                                userfullname=_message.from_user.full_name,
+                                message=await self.issue_generator.issue_generator(_message),
+                                message_from=self.message_from.user,
+                                timestamp=_message.date
+                            )
+                        return
+
+                    await self.tickets.add_message_to_ticket(
+                        ticket_id=ticket_id,
+                        user_id=_message.from_user.id,
+                        message_id=msg.id,
+                        message_chat_id=msg.chat.id,
+                        username=_message.from_user.username,
+                        userfullname=_message.from_user.full_name,
+                        message=await self.issue_generator.issue_generator(_message),
+                        message_from=self.message_from.user,
+                        timestamp=_message.date
+                    ); return
                 
+                ticket_open = UserTickets(**ticket_open)
+                ticket_id = ticket_open.ticket_id
+                initial_message = self.messages.replay_message(
+                    self.template.messages.reply_additional_message_private, 
+                    ticket_id=ticket_id
+                )
+
+                await self.telebot.reply_to(
+                    message=message_origin,
+                    text=initial_message.text,  
+                    parse_mode=initial_message.parse_mode
+                )
+                msg: Union[Message,List[Message]] = await self._send_to_group(ticket_id=ticket_id, message=_message)
+                    
                 if isinstance(msg, list):
                     for m in msg:
                         await self.tickets.add_message_to_ticket(
@@ -473,7 +547,7 @@ class HandlerMessages:
         except Exception as e:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
 
-    async def _process_media_private_after_delay(self, media_group_id: str, username: str) -> Message:
+    async def _process_media_private_after_delay(self, ticket_id: str, media_group_id: str, username: str) -> Message:
         """
         Process media group and send the message to a private chat after a delay.
 
@@ -510,7 +584,7 @@ class HandlerMessages:
                         _message = message
                         break
 
-                await self._send_to_private(message=_message, from_group=True, username=username)
+                await self._send_to_private(message=_message, ticket_id=ticket_id, from_group=True, username=username)
         
         except Exception as e:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
@@ -535,26 +609,16 @@ class HandlerMessages:
             ); return
         return
     
-    
-    async def _handle_media_group_message_private(self, message: Message, media_group_id: str, 
-                                         ticket_id: int, initial_message: Messages) -> None:
-        """
-        Handle messages that are part of a media group.
-        
-        Args:
-            message: The message to handle
-            media_group_id: The ID of the media group
-            ticket_id: The ticket ID associated with the message
-            initial_message: The initial response message
-        """
+    async def _store_media_group(self, **kwargs):
+        message: Message = kwargs.get("message")
+        media_group_id: int = kwargs.get("media_group_id")
         
         self.storage.tempstore("media_group_id", media_group_id)
 
         if media_group_id not in self.storage.temp.store:
-            
             self.storage.tempstore(
                 media_group_id, 
-                MessagesStore(**arson(messages=[], ticket_id=ticket_id, processed=False))
+                MessagesStore(**arson(messages=[], processed=False))
             )
             if hasattr(message, 'photo') and message.photo:
                 self.storage.tempstore(f"photo_{media_group_id}", MediaStores(medias=[]))
@@ -563,7 +627,6 @@ class HandlerMessages:
             elif hasattr(message, 'document') and message.document:
                 self.storage.tempstore(f"document_{media_group_id}", MediaStores(medias=[]))
 
-        
         group_data: MessagesStore = self.storage.temp.get(media_group_id)
         group_data.messages.append(message)
         self.storage.tempstore(media_group_id, group_data)
@@ -583,13 +646,22 @@ class HandlerMessages:
             group_media.medias.append(InputMediaDocument(media=message.document.file_id))
             self.storage.tempstore(f"document_{media_group_id}", group_media)
 
-        if len(group_data.messages) == 1:
-            await self.telebot.reply_to(
-                message=message,
-                text=initial_message.text,  
-                parse_mode=initial_message.parse_mode
-            )
-        asyncio.create_task(self._process_media_groups_after_delay(media_group_id))
+    
+    async def _handle_media_group_message_private(self, message: Message, media_group_id: str) -> None:
+        """
+        Handle messages that are part of a media group.
+        
+        Args:
+            message: The message to handle
+            media_group_id: The ID of the media group
+            ticket_id: The ticket ID associated with the message
+            initial_message: The initial response message
+        """
+        await self._store_media_group(
+            message=message,
+            media_group_id=media_group_id
+        )
+        asyncio.create_task(self._process_media_groups_after_delay(message, media_group_id))
 
 
     async def _handle_media_group_message_group(self, message: Message, media_group_id: str, 
@@ -607,51 +679,14 @@ class HandlerMessages:
         Returns:
             None
         """
-        self.storage.tempstore("media_group_id", media_group_id)
-
-        
-        if media_group_id not in self.storage.temp.store:
-            self.storage.tempstore(
-                media_group_id, 
-                MessagesStore(**arson(messages=[], ticket_id=ticket_id, processed=False))
-            )
-            if hasattr(message, 'photo') and message.photo:
-                self.storage.tempstore(f"photo_{media_group_id}", MediaStores(medias=[]))
-            elif hasattr(message, 'video') and message.video:
-                self.storage.tempstore(f"video_{media_group_id}", MediaStores(medias=[]))
-            elif hasattr(message, 'document') and message.document:
-                self.storage.tempstore(f"document_{media_group_id}", MediaStores(medias=[]))
-
-        
-        group_data: MessagesStore = self.storage.temp.get(media_group_id)
-        group_data.messages.append(message)
-        self.storage.tempstore(media_group_id, group_data)
-        
-        if hasattr(message, 'photo') and message.photo:
-            group_media: MediaStores = self.storage.temp.get(f"photo_{media_group_id}")
-            group_media.medias.append(InputMediaPhoto(media=message.photo[-1].file_id))
-            self.storage.tempstore(f"photo_{media_group_id}", group_media)
-        
-        elif hasattr(message, 'video') and message.video:
-            group_media: MediaStores = self.storage.temp.get(f"video_{media_group_id}")
-            group_media.medias.append(InputMediaVideo(media=message.video.file_id))
-            self.storage.tempstore(f"video_{media_group_id}", group_media)
-
-        elif hasattr(message, 'document') and message.document:
-            group_media: MediaStores = self.storage.temp.get(f"document_{media_group_id}")
-            group_media.medias.append(InputMediaDocument(media=message.document.file_id))
-            self.storage.tempstore(f"document_{media_group_id}", group_media)
-
-        if len(group_data.messages) == 1:
-            await self.telebot.reply_to(
-                message=message,
-                text=initial_message.text,  
-                parse_mode=initial_message.parse_mode
-            )            
-        asyncio.create_task(self._process_media_private_after_delay(media_group_id, username))
+        await self._store_media_group(
+            message=message,
+            media_group_id=media_group_id
+        )
+        asyncio.create_task(self._process_media_private_after_delay(ticket_id, media_group_id, username))
 
 
-    async def _send_error_response(self, message: Message, template, **kwargs):
+    async def _send_error_response(self, message: Message | CallbackQuery, template, **kwargs):
         """
         Helper method to send error responses and reduce code duplication.
         
@@ -776,72 +811,41 @@ class HandlerMessages:
                         username=message.from_user.username,
                         last_name=message.from_user.last_name
                     )
-
-            user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
-            ticket_open = next(iter(user_tickets), None)
-
-            if not ticket_open:
-                ticket_id = generate_id(message.from_user.id)
-                initial_message = self.messages.replay_message(
-                    self.template.messages.reply_message_private, 
-                    ticket_id=ticket_id,
-                    bot_name=self.config.bot.name
-                )
-
-                media_group_id = getattr(message, 'media_group_id', None)
-                if media_group_id:
-                    await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
-                else:
-                    await self.telebot.reply_to(
-                        message=message,
-                        text=initial_message.text,
-                        parse_mode=initial_message.parse_mode
-                    )
-                    msg: Message = await self._send_to_group(ticket_id, message)
-                
-                issue = await self.issue_generator.issue_generator(message)
-                await self.tickets.create_ticket(
-                    ticket_id=ticket_id,
-                    user_id=message.from_user.id,
-                    message_id=msg.id,
-                    message_chat_id=msg.chat.id,
-                    username=message.from_user.username,
-                    userfullname=message.from_user.full_name,
-                    issue=issue,
-                    timestamp=message.date
-                )
-                await self.tickets.add_message_to_ticket(
-                    ticket_id=ticket_id,
-                    user_id=message.from_user.id,
-                    message_id=msg.id,
-                    message_chat_id=msg.chat.id,
-                    username=message.from_user.username,
-                    userfullname=message.from_user.full_name,
-                    message=issue,
-                    message_from=self.message_from.user,
-                    timestamp=message.date
-                )
-
+            
+            media_group_id = getattr(message, 'media_group_id', None)
+            if media_group_id:                
+                await self._handle_media_group_message_private(message, media_group_id)
             else:
-                ticket_open = UserTickets(**ticket_open)
-                ticket_id = ticket_open.ticket_id
-                initial_message = self.messages.replay_message(
-                    self.template.messages.reply_additional_message_private, 
-                    ticket_id=ticket_id
-                )
 
-                media_group_id = getattr(message, 'media_group_id', None)
-                if media_group_id:
-                    await self._handle_media_group_message_private(message, media_group_id, ticket_id, initial_message)
-                else:
+                user_tickets = await self.tickets.get_user_tickets(message.from_user.id)
+                ticket_open = next(iter(user_tickets), None)
+
+                if not ticket_open:
+                    ticket_id = generate_id(message.from_user.id)
+                    initial_message = self.messages.replay_message(
+                        self.template.messages.reply_message_private, 
+                        ticket_id=ticket_id,
+                        bot_name=self.config.bot.name
+                    )
+
                     await self.telebot.reply_to(
                         message=message,
                         text=initial_message.text,
                         parse_mode=initial_message.parse_mode
                     )
                     msg: Message = await self._send_to_group(ticket_id, message)
-                    
+
                     issue = await self.issue_generator.issue_generator(message)
+                    await self.tickets.create_ticket(
+                        ticket_id=ticket_id,
+                        user_id=message.from_user.id,
+                        message_id=msg.id,
+                        message_chat_id=msg.chat.id,
+                        username=message.from_user.username,
+                        userfullname=message.from_user.full_name,
+                        issue=issue,
+                        timestamp=message.date
+                    )
                     await self.tickets.add_message_to_ticket(
                         ticket_id=ticket_id,
                         user_id=message.from_user.id,
@@ -852,7 +856,34 @@ class HandlerMessages:
                         message=issue,
                         message_from=self.message_from.user,
                         timestamp=message.date
-                    )
+                    ); return
+
+                ticket_open = UserTickets(**ticket_open)
+                ticket_id = ticket_open.ticket_id
+                initial_message = self.messages.replay_message(
+                    self.template.messages.reply_additional_message_private, 
+                    ticket_id=ticket_id
+                )
+
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                )
+                msg: Message = await self._send_to_group(ticket_id, message)
+                
+                issue = await self.issue_generator.issue_generator(message)
+                await self.tickets.add_message_to_ticket(
+                    ticket_id=ticket_id,
+                    user_id=message.from_user.id,
+                    message_id=msg.id,
+                    message_chat_id=msg.chat.id,
+                    username=message.from_user.username,
+                    userfullname=message.from_user.full_name,
+                    message=issue,
+                    message_from=self.message_from.user,
+                    timestamp=message.date
+                ); return
 
         except Exception as e:
             self.logger.error(f"Error handling private message: {e}")
@@ -926,7 +957,7 @@ class HandlerMessages:
                     initial_message=initial_message
                 ); return
             
-            msg: Message = await self._send_to_private(message, True, username)
+            msg: Message = await self._send_to_private(message, ticket_id, True, username)
             await self.telebot.reply_to(
                 message=message,
                 text=initial_message.text,
@@ -1086,12 +1117,6 @@ class HandlerMessages:
                 template=self.template.messages.template_must_reply_ticket
             )
         
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_user_not_handler
-            )        
-
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
 
@@ -1139,27 +1164,58 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
+        if message.chat.type in ["supergroup", "group"]:
+            ticket_handling = await self.tickets.get_handler_tickets_history(message.from_user.id)
+            if not ticket_handling:
+                return await self._send_error_response(
+                    message=message,
+                    template=self.template.messages.template_empty_history
+                )
+            
+            initial_message = self.messages.history_message(
+                template=self.template.messages.template_history,
+                content_template=self.template.messages.template_list_history,
+                contents=ticket_handling,
+                time_range="today"
+            )
+            await self.telebot.reply_to(
                 message=message,
-                template=self.template.messages.template_user_not_handler
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode
+            ); return
+        else:
+            initial_message = self.messages.reply_message_group(
+                self.template.messages.template_time_range_history
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=initial_message.text,
+                parse_mode=initial_message.parse_mode,
+                reply_markup=keyboard_markup(TIME_RANGES.split(","))
             )
     
-        ticket_handling = await self.tickets.get_user_tickets_history(message.from_user.id)
-        if not ticket_handling:
+
+    async def handler_history_time_range(self, call: CallbackQuery):
+        time_range = call.data
+        history_tickets = await self.tickets.get_user_tickets_history(
+            user_id=call.from_user.id,
+            time_range=time_range
+        )
+        if not history_tickets:
             return await self._send_error_response(
-                message=message,
+                message=call,
                 template=self.template.messages.template_empty_history
             )
         
         initial_message = self.messages.history_message(
             template=self.template.messages.template_history,
             content_template=self.template.messages.template_list_history,
-            contents=ticket_handling
+            contents=history_tickets,
+            time_range=time_range
         )
-        await self.telebot.reply_to(
-            message=message,
-            text=initial_message.text,
+        await self.telebot.send_message(
+            chat_id=call.message.chat.id, 
+            text=initial_message.text, 
             parse_mode=initial_message.parse_mode
         ); return
     
