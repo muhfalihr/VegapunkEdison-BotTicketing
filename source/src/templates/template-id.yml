@@ -139,7 +139,7 @@ messages:
     📭 Tidak Ada Tiket Yang Ditangani!
   
   template_history: |
-    🗃 History Handling Tickets *( {time_range} )* :{history_handling_tickets}
+    🗃 History Tickets *( {time_range} )* :{history_handling_tickets}
   
   template_list_history: |
     {space}🎫 *Ticket* #{ticket_id}

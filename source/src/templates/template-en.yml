@@ -139,7 +139,7 @@ messages:
     📭 No Tickets Handled!
   
   template_history: |
-    🗃 History of Handling Tickets *( {time_range} )* :{history_handling_tickets}
+    🗃 History Tickets *( {time_range} )* :{history_handling_tickets}
   
   template_list_history: |
     {space}🎫 *Ticket* #{ticket_id}
