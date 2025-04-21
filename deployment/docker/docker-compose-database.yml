@@ -3,6 +3,7 @@ services:
     container_name: vegapunk-edison-database
     image: mysql:8.0
     environment:
+      TZ: Asia/Jakarta
       MYSQL_ROOT_PASSWORD: vegapunkbotticketing
       MYSQL_DATABASE: bot-ticketing
       MYSQL_USER: vegapunk

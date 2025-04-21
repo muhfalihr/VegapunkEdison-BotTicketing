@@ -82,6 +82,8 @@ spec:
           image: mysql:8.0
           
           env:
+            - name: TZ
+              value: Asia/Jakarta
             - name: MYSQL_ROOT_PASSWORD
               value: vegapunkbotticketing
             - name: MYSQL_DATABASE

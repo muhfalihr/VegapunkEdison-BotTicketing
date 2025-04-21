@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     volumes:
       - /path/to/config.yml:/vegapunk-app/config.yml
+    environment:
+      - TZ=Asia/Jakarta
     networks:
       - vegapunk-network
 

@@ -18,6 +18,10 @@ spec:
           image: muhfalihr/vegapunkedison-bot-ticketing:latest
           imagePullPolicy: IfNotPresent
 
+          env:
+            - name: TZ
+              value: Asia/Jakarta
+
           volumeMounts:
           - name: additional-config
             mountPath: /app/config.yml
