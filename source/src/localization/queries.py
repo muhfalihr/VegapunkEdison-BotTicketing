@@ -164,7 +164,7 @@ SELECT ticket_id, issue, status, created_at, closed_at, handler_username
 FROM ticketsv2
 WHERE handler_id = %s 
   AND DATE(closed_at) = CURDATE() 
-ORDER BY closed_at DESC
+ORDER BY closed_at ASC
 """
 
 GET_HISTORY_USER_TICKETS: str = """

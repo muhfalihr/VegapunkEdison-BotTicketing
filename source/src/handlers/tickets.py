@@ -400,7 +400,7 @@ class HandlerTickets(BtAioMysql):
             query = (
                 f"{GET_HISTORY_USER_TICKETS} "
                 f"{time_range_query} "
-                "ORDER BY created_at DESC"
+                "ORDER BY created_at ASC"
             )
             result = await self.fetch_all(query, (user_id,))
             tickets = [
