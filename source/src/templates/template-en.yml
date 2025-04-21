@@ -136,7 +136,7 @@ messages:
     Select a ⏱ time range to view history 🗃.
   
   template_empty_history: |
-    📭 No Tickets Handled!
+    📭 No Tickets History!
   
   template_history: |
     🗃 History Tickets *( {time_range} )* :{history_handling_tickets}

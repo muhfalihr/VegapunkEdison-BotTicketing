@@ -109,12 +109,12 @@ class BotTicketing(HandlerMessages):
             await self.handler_typo_command(message)
 
         
-        @self.telebot.message_handler(content_types=["text", "document", "photo", "video", "sticker"], chat_types=["private"])
+        @self.telebot.message_handler(content_types=["text", "document", "photo", "video"], chat_types=["private"])
         async def handle_message_from_user(message):
             await self.handler_message_private(message)
         
 
-        @self.telebot.message_handler(content_types=["text", "document", "photo", "video", "sticker"], chat_types=["group", "supergroup"])
+        @self.telebot.message_handler(content_types=["text", "document", "photo", "video"], chat_types=["group", "supergroup"])
         async def handle_message_from_admin(message):
             await self.handler_message_group(message)
 
