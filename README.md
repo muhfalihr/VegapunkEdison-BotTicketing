@@ -186,6 +186,8 @@ The bot supports multiple roles with different command sets:
 | Command   | Description |
 |-----------|-------------|
 | `/start`  | Start interaction with the bot and create a new support ticket. |
+| `/conversation` | View the current conversation in the ticket. |
+| `/history`      | Display a list of previously resolved or closed tickets. |
 
 ### 🧑‍💼 Handler Commands
 | Command         | Description |
