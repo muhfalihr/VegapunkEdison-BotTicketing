@@ -17,8 +17,8 @@ database:
   database: "<database>"
   tables:
     - usersv2
-    - ticketsv2
-    - ticket_messagesv2
+    - tickets
+    - ticket_messages
     - banned_users
     - handlersv2
 
