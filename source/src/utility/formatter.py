@@ -111,7 +111,7 @@ class MarkdownFormatter:
         code_blocks = self.find_code_blocks(text)
         if not code_blocks:
             # No code blocks found, just escape underscores
-            return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+            return text.replace("_", "\\_").replace("[", "\\[")
         
         # Process the text in chunks
         result = []
@@ -120,7 +120,7 @@ class MarkdownFormatter:
         for start, end, is_multiline in code_blocks:
             # Add escaped text before this code block
             before_part = text[last_end:start]
-            escaped_before = before_part.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+            escaped_before = before_part.replace("_", "\\_").replace("[", "\\[")
             result.append(escaped_before)
             
             # Add the code block unchanged - do not escape underscores inside code blocks
@@ -130,7 +130,7 @@ class MarkdownFormatter:
         # Handle text after the last code block
         if last_end < len(text):
             final_part = text[last_end:]
-            result.append(final_part.replace("_", "\\_").replace("*", "\\*").replace("[", "\\["))
+            result.append(final_part.replace("_", "\\_").replace("[", "\\["))
         
         return ''.join(result)
     
@@ -188,7 +188,7 @@ class MarkdownFormatter:
     
     def escape_markdown(self, text: str) -> str:
         """Escape undescores."""
-        return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+        return text.replace("_", "\\_").replace("[", "\\[")
 
     def escape_markdownv2(self, text: str):
         return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
