@@ -1,6 +1,6 @@
 import re
 
-from typing import List, Dict, Any, Union, Optional
+from typing import List, Dict, Tuple, Union, Optional
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -20,9 +20,6 @@ class FormatType(Enum):
     ITALIC = auto()
     STRIKETHROUGH = auto()
     HEADER = auto()
-    # URL = auto()
-    LINK = auto()
-    IMAGE = auto()
     QUOTE = auto()
     BLOCKQUOTE = auto()
 
@@ -52,11 +49,6 @@ class MarkdownFormatter:
             "h5": {"start": "##### ", "end": "\n", "type": FormatType.HEADER},
             "h6": {"start": "###### ", "end": "\n", "type": FormatType.HEADER},
             
-            # Url, Links and images
-            # "url": {"start": "", "end": "", "type": FormatType.URL},
-            "link": {"start": "[", "middle": "](", "end": ")", "type": FormatType.LINK},
-            "image": {"start": "![", "middle": "](", "end": ")", "type": FormatType.IMAGE},
-
             # Quotes and horizontal rules
             "blockquote": {"start": "> ", "end": "\n", "type": FormatType.BLOCKQUOTE},
             "hr": {"start": "---", "end": "\n", "type": FormatType.QUOTE},
@@ -68,44 +60,80 @@ class MarkdownFormatter:
             return FormattingEntity(**entity)
         return entity
 
-    def _escape_markdown(self, text_list: List[str], format_ranges: List[TypeEntities]) -> None:
-        """Escape only markdown-related _ and * characters outside of normal words."""
-        protected_indices = set()
+    def find_code_blocks(self, text: str) -> List[Tuple[int, int, bool]]:
+        """
+        Find both inline and multiline code blocks in the text.
+        Returns a list of tuples (start, end, is_multiline).
+        Properly handles nested code blocks.
+        """
+        code_blocks = []
         
-        for entity in format_ranges:
-            try:
-                start_idx = entity.entity[1]
-                end_idx = entity.entity[0]
-                for i in range(start_idx, end_idx):
-                    protected_indices.add(i)
-            except Exception:
+        # First, find all multiline code blocks
+        multiline_blocks = []
+        for match in re.finditer(r'```(?:[^\n]*\n)?(.*?)```', text, re.DOTALL):
+            multiline_blocks.append((match.start(), match.end()))
+            code_blocks.append((match.start(), match.end(), True))
+        
+        # Helper function to check if a position is inside any multiline block
+        def is_inside_multiline_block(pos):
+            return any(start <= pos < end for start, end in multiline_blocks)
+        
+        # Now find inline code blocks, but only if they're not inside multiline blocks
+        inline_pattern = r'`([^`]+)`'
+        
+        i = 0
+        while i < len(text):
+            # Skip checking inside multiline blocks
+            if is_inside_multiline_block(i):
+                i += 1
                 continue
+            
+            # Look for inline code block
+            match = re.search(inline_pattern, text[i:])
+            if not match:
+                break
+                
+            start = i + match.start()
+            end = i + match.end()
+            
+            # Make sure this inline block doesn't overlap with any multiline block
+            if not is_inside_multiline_block(start) and not is_inside_multiline_block(end - 1):
+                code_blocks.append((start, end, False))
+            
+            # Move past this match
+            i = i + match.end()
+        
+        return sorted(code_blocks)
 
-        text = ''.join(text_list)
-
-        url_pattern = re.compile(r"\b(?:https?|ftp):\/\/(?=[^ \n]*_)[a-zA-Z0-9.\-]+(?::\d+)?(?:\/[a-zA-Z0-9\-._~%!$&'()*+,;=:@\/?#[\]=]*)?")
-        for match in url_pattern.finditer(text):
-            start, end = match.start(), match.end()
-            for i in range(start, end):
-                protected_indices.add(i)
-
-            escaped_url = match.group(0).replace("_", "\\_")
-            text_list[start:end] = list(escaped_url)
-
-        for i, char in enumerate(text_list):
-            if i in protected_indices:
-                continue
-            if char == "_" and not (i > 0 and text_list[i-1].isalnum() and i+1 < len(text_list) and text_list[i+1].isalnum()):
-                text_list[i] = "\\_"
-            elif char == "_" and (i > 0 and text_list[i-1].isalnum() and i+1 < len(text_list) and text_list[i+1].isalnum()):
-                text_list[i] = "\\_"
-            elif char == "*" and not (i > 0 and text_list[i-1].isalnum() and i+1 < len(text_list) and text_list[i+1].isalnum()):
-                text_list[i] = "\\*"
-
-    def escape_undescores(self, text: str) -> str:
-        """Escape undescores."""
-        return text.replace("_", "\\_")
-
+    # def _escape_markdown(self, text_list: List[str], format_ranges: List[TypeEntities]) -> None:
+    def _escape_markdown(self, text):
+        """Escape only markdown-related _ and * characters outside of normal words."""
+        code_blocks = self.find_code_blocks(text)
+        if not code_blocks:
+            # No code blocks found, just escape underscores
+            return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+        
+        # Process the text in chunks
+        result = []
+        last_end = 0
+        
+        for start, end, is_multiline in code_blocks:
+            # Add escaped text before this code block
+            before_part = text[last_end:start]
+            escaped_before = before_part.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+            result.append(escaped_before)
+            
+            # Add the code block unchanged - do not escape underscores inside code blocks
+            result.append(text[start:end])
+            last_end = end
+        
+        # Handle text after the last code block
+        if last_end < len(text):
+            final_part = text[last_end:]
+            result.append(final_part.replace("_", "\\_").replace("*", "\\*").replace("[", "\\["))
+        
+        return ''.join(result)
+    
     def _apply_formatting(self, text_list: List[str], entity: FormattingEntity) -> Optional[TypeEntities]:
         format_type = self.formatting_types.get(entity.type)
         if not format_type:
@@ -123,15 +151,6 @@ class MarkdownFormatter:
             return TypeEntities(
                 type=format_type["type"],
                 entity=((end + len(opening) + len(ending)), (start))
-            )
-
-        elif format_type["type"] in {FormatType.LINK, FormatType.IMAGE}:
-            title = f' "{entity.title}"' if entity.title else ''
-            text_list.insert(end, f"{format_type['middle']}{entity.url}{title}{format_type['end']}")
-            text_list.insert(start, format_type['start'])
-            return TypeEntities(
-                type=format_type["type"],
-                entity=((end + end + len(format_type['middle'] + entity.url + title + format_type['end'])), (start))
             )
 
         else:
@@ -163,13 +182,13 @@ class MarkdownFormatter:
             if applied:
                 applied_ranges.append(applied)
 
-        self._escape_markdown(text_list, applied_ranges)
-        return ''.join(text_list)
+        text = ''.join(text_list)
+        text_escaped = self._escape_markdown(text)
+        return text_escaped
     
-    def escape_markdown(self, text: str):
-        # escape_chars = r"\`*_{}[]()#+-.!|>"
-        escape_chars = r"*_"
-        return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
-    
+    def escape_markdown(self, text: str) -> str:
+        """Escape undescores."""
+        return text.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[")
+
     def escape_markdownv2(self, text: str):
         return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)

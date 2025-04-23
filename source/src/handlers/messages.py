@@ -232,7 +232,7 @@ class HandlerMessages:
             message_text_non_format = self.markdown.escape_markdown(message.text or message.caption or "...")
 
             full_name = message.from_user.full_name
-            username = self.markdown.escape_undescores(message.from_user.username)
+            username = self.markdown.escape_markdown(message.from_user.username)
             
             initial_message_format = self.messages.replay_message(
                 self.template.messages.template_ticket_message, 
@@ -340,7 +340,7 @@ class HandlerMessages:
         
         timestamp = epodate(message.date)
         full_name = message.from_user.full_name
-        username_ = self.markdown.escape_undescores(message.from_user.username)
+        username_ = self.markdown.escape_markdown(message.from_user.username)
         
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_ticket_message_admin,
@@ -1020,7 +1020,7 @@ class HandlerMessages:
                 opened_tickets=opened_tickets,
                 template1=self.template.messages.template_open_ticket_in_admin,
                 template2=self.template.messages.template_link_open_ticket,
-                func=self.markdown.escape_undescores
+                func=self.markdown.escape_markdown
             )
             await self.telebot.reply_to(
                 message=message,
@@ -1081,7 +1081,7 @@ class HandlerMessages:
         user_id = await self.tickets.get_userid_by_username(username)
 
         timestamp = epodate(message.date)
-        handler_username = self.markdown.escape_undescores(message.from_user.username)
+        handler_username = self.markdown.escape_markdown(message.from_user.username)
         await self.tickets.close_ticket(
             ticket_id=ticket_id,
             handler_id=message.from_user.id,
@@ -1092,7 +1092,7 @@ class HandlerMessages:
         initial_message = self.messages.replay_message(
             text=self.template.messages.template_closed_ticket,
             ticket_id=ticket_id,
-            username=self.markdown.escape_undescores(message.from_user.username),
+            username=self.markdown.escape_markdown(message.from_user.username),
             timestamp=timestamp
         )
         await self.telebot.reply_to(
@@ -1104,7 +1104,7 @@ class HandlerMessages:
             user_id.get("id"), 
             message, 
             ticket_id=ticket_id, 
-            username=self.markdown.escape_undescores(message.from_user.username),
+            username=self.markdown.escape_markdown(message.from_user.username),
             timestamp=timestamp
         ); return
 
@@ -1153,7 +1153,7 @@ class HandlerMessages:
             content_template=self.template.messages.template_content_conversation,
             contents=conversation,
             ticket_id=ticket_id,
-            func=self.markdown.escape_undescores
+            func=self.markdown.escape_markdown
         )
         await self.telebot.reply_to(
             message=message,
@@ -1300,7 +1300,7 @@ class HandlerMessages:
             [handler.user_id for handler in await self.tickets.get_all_handlers()]
         )
 
-        username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
+        username = self.markdown.escape_markdown(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
             self.template.messages.template_added_new_handler,
             username=username
@@ -1339,7 +1339,7 @@ class HandlerMessages:
             template=self.template.messages.template_handlers,
             content_template=self.template.messages.template_handlers_content,
             contents=handlers,
-            func=self.markdown.escape_undescores
+            func=self.markdown.escape_markdown
         )
         await self.telebot.reply_to(
             message=message,
@@ -1393,7 +1393,7 @@ class HandlerMessages:
             [handler.user_id for handler in await self.tickets.get_all_handlers()]
         )
         
-        username = self.markdown.escape_undescores(message.reply_to_message.from_user.username)
+        username = self.markdown.escape_markdown(message.reply_to_message.from_user.username)
         initial_message = self.messages.reply_message_group(
             self.template.messages.template_delete_handler,
             username=username
