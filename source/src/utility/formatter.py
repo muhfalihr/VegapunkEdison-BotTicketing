@@ -60,6 +60,105 @@ class MarkdownFormatter:
             return FormattingEntity(**entity)
         return entity
 
+    def find_markdown_elements(self, text: str) -> List[Tuple[int, int, str]]:
+        """
+        Find markdown elements in text including:
+        - Multiline code blocks (```)
+        - Inline code blocks (`)
+        - Bold text (*)
+        - Italic text (_)
+        
+        Returns a list of tuples (start, end, element_type).
+        Properly handles nested elements and avoids overlaps.
+        """
+        elements = []
+        protected_ranges = []
+        
+        # First, find all multiline code blocks - these have highest priority
+        multiline_blocks = []
+        for match in re.finditer(r'```(?:[^\n]*\n)?(.*?)```', text, re.DOTALL):
+            start, end = match.start(), match.end()
+            multiline_blocks.append((start, end))
+            elements.append((start, end, "pre"))
+            protected_ranges.append((start, end))
+        
+        # Helper function to check if a position is inside any protected range
+        def is_inside_protected_range(pos):
+            return any(start <= pos < end for start, end in protected_ranges)
+        
+        def is_inside_protected_range_span(start_pos, end_pos):
+            return any(
+                (start <= start_pos < end) or 
+                (start <= end_pos-1 < end) or
+                (start_pos <= start and end <= end_pos)
+                for start, end in protected_ranges
+            )
+        
+        # Find inline code blocks, but only if they're not inside protected ranges
+        inline_code_pattern = r'`([^`]+)`'
+        i = 0
+        while i < len(text):
+            if is_inside_protected_range(i):
+                i += 1
+                continue
+            
+            match = re.search(inline_code_pattern, text[i:])
+            if not match:
+                break
+                
+            start = i + match.start()
+            end = i + match.end()
+            
+            if not is_inside_protected_range_span(start, end):
+                elements.append((start, end, "code"))
+                protected_ranges.append((start, end))
+            
+            i = i + match.end() if match.end() > 0 else i + 1
+        
+        # Find bold text, but only if not inside protected ranges
+        bold_pattern = r'\*([^\*]+)\*'
+        i = 0
+        while i < len(text):
+            if is_inside_protected_range(i):
+                i += 1
+                continue
+            
+            match = re.search(bold_pattern, text[i:])
+            if not match:
+                break
+                
+            start = i + match.start()
+            end = i + match.end()
+            
+            if not is_inside_protected_range_span(start, end):
+                elements.append((start, end, "bold"))
+                protected_ranges.append((start, end))
+            
+            i = i + match.end() if match.end() > 0 else i + 1
+        
+        # Find italic text, but only if not inside protected ranges
+        italic_pattern = r'_([^_]+)_'
+        i = 0
+        while i < len(text):
+            if is_inside_protected_range(i):
+                i += 1
+                continue
+            
+            match = re.search(italic_pattern, text[i:])
+            if not match:
+                break
+                
+            start = i + match.start()
+            end = i + match.end()
+            
+            if not is_inside_protected_range_span(start, end):
+                elements.append((start, end, "italic"))
+                protected_ranges.append((start, end))
+            
+            i = i + match.end() if match.end() > 0 else i + 1
+        
+        return sorted(elements)
+
     def find_code_blocks(self, text: str) -> List[Tuple[int, int, bool]]:
         """
         Find both inline and multiline code blocks in the text.
@@ -105,8 +204,39 @@ class MarkdownFormatter:
         
         return sorted(code_blocks)
 
-    # def _escape_markdown(self, text_list: List[str], format_ranges: List[TypeEntities]) -> None:
     def _escape_markdown(self, text):
+        """
+        Escape markdown-related special characters (_, *, [, ]) outside markdown elements.
+        Preserves code blocks, bold and italic text without escaping characters inside them.
+        """
+        markdown_elements = self.find_markdown_elements(text)
+        
+        if not markdown_elements:
+            # No markdown elements found, escape all special characters
+            return text.replace("_", "\\_").replace("[", "\\[")
+        
+        # Process the text in chunks
+        result = []
+        last_end = 0
+        
+        for start, end, element_type in markdown_elements:
+            # Add escaped text before this element
+            before_part = text[last_end:start]
+            escaped_before = before_part.replace("_", "\\_").replace("[", "\\[")
+            result.append(escaped_before)
+            
+            # Add the code block unchanged - do not escape underscores inside code blocks
+            result.append(text[start:end])
+            last_end = end
+        
+        # Handle text after the last element
+        if last_end < len(text):
+            final_part = text[last_end:]
+            result.append(final_part.replace("_", "\\_").replace("[", "\\["))
+        
+        return ''.join(result)
+
+    def _escape_markdown_old(self, text):
         """Escape only markdown-related _ and * characters outside of normal words."""
         code_blocks = self.find_code_blocks(text)
         if not code_blocks:
