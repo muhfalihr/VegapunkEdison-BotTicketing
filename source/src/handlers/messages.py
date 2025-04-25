@@ -171,7 +171,7 @@ class HandlerMessages:
         try:
             return self.markdown.format_text(text, [FormattingEntity(**entity) for entity in entities])
         except Exception as e:
-            self.logger.error(f"[MarkdownFormatError] {e}")
+            self.logger.error(f"Error Formatting Markdown: {e}")
             return self.markdown.escape_markdown(text)
 
     
