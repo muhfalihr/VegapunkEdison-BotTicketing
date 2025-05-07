@@ -84,8 +84,8 @@ class MarkdownFormatter:
             text_list.insert(end, ending)
             text_list.insert(start, opening)
 
-            len_start = len(opening)
-            len_end = len(ending)
+            len_start = 1
+            len_end = 1
 
             return TypeEntities(
                 type=format_type["type"],
@@ -130,7 +130,7 @@ class MarkdownFormatter:
                 count += plus
                 if applied:
                     applied_ranges.append(applied)
-        
+
         protected_indices = set()
         for type_entities in applied_ranges:
             for i in range(type_entities.entity[-1], type_entities.entity[0]):
