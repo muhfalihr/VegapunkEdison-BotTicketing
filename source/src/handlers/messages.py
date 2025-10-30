@@ -547,7 +547,7 @@ class HandlerMessages:
         except Exception as e:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
 
-    async def _process_media_private_after_delay(self, ticket_id: str, media_group_id: str, username: str) -> Message:
+    async def _process_media_private_after_delay(self, ticket_id: str, media_group_id: str, username: str, initial_message: Messages) -> Message:
         """
         Process media group and send the message to a private chat after a delay.
 
@@ -585,6 +585,11 @@ class HandlerMessages:
                         break
 
                 await self._send_to_private(message=_message, ticket_id=ticket_id, from_group=True, username=username)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=initial_message.text,
+                    parse_mode=initial_message.parse_mode
+                )
         
         except Exception as e:
             self.logger.error(f"Error processing media group {media_group_id}: {e}")
@@ -683,7 +688,7 @@ class HandlerMessages:
             message=message,
             media_group_id=media_group_id
         )
-        asyncio.create_task(self._process_media_private_after_delay(ticket_id, media_group_id, username))
+        asyncio.create_task(self._process_media_private_after_delay(ticket_id, media_group_id, username, initial_message))
 
 
     async def _send_error_response(self, message: Message | CallbackQuery, template, **kwargs):
@@ -801,8 +806,8 @@ class HandlerMessages:
                     parse_mode=initial_message.parse_mode
                 ); return
 
-            user_details = await self.tickets.get_user_details_by_id(message.from_user.id)
-            if not user_details:
+            user_details_db = await self.tickets.get_user_details_by_id(message.from_user.id)
+            if not user_details_db:
                 await self.tickets.registration_user(
                     id=message.from_user.id,
                     is_bot=message.from_user.is_bot,
@@ -810,18 +815,40 @@ class HandlerMessages:
                     username=message.from_user.username,
                     last_name=message.from_user.last_name
                 )
-            else:
-                user_details = UserDetails(**user_details)
-                if user_details.username != message.from_user.username:
-                    await self.tickets.update_user(
-                        id=message.from_user.id,
-                        first_name=message.from_user.first_name,
-                        username=message.from_user.username,
-                        last_name=message.from_user.last_name
-                    )
             
+            if user_details_db:
+                user_details_tele = {
+                    "id": str(message.from_user.id),
+                    "is_bot": int(message.from_user.is_bot) if hasattr(message.from_user, "is_bot") else 0,
+                    "first_name": message.from_user.first_name,
+                    "username": message.from_user.username,
+                    "last_name": message.from_user.last_name,
+                }
+
+                exclude_keys = {"id"}
+                diff = {}
+                for key in user_details_tele:
+                    if key in exclude_keys:
+                        continue
+
+                    tele_value = user_details_tele.get(key)
+                    db_value = user_details_db.get(key)
+
+                    if tele_value != db_value:
+                        diff[key] = {"tele": tele_value, "db": db_value}
+
+                user_details_tele.pop("is_bot")
+
+                if diff:
+                    user_details = UserDetails(**user_details_tele)
+                    if (user_details_db["username"] != user_details.username) or \
+                        (user_details_db["first_name"] != user_details.first_name) or \
+                            (user_details_db["last_name"] != user_details.last_name):
+                        
+                        await self.tickets.update_user(**user_details.__dict__)
+
             media_group_id = getattr(message, 'media_group_id', None)
-            if media_group_id:                
+            if media_group_id:
                 await self._handle_media_group_message_private(message, media_group_id)
             else:
 
@@ -936,7 +963,7 @@ class HandlerMessages:
 
             ticket_id = matches.group(1)
             username = matches.group(3)
-        
+
             closed_ticket = await self.tickets.get_closed_ticket_by_ticketid(ticket_id)
             if closed_ticket:
                 initial_message = self.messages.reply_message_group(
@@ -964,7 +991,7 @@ class HandlerMessages:
                     username=username, 
                     initial_message=initial_message
                 ); return
-            
+
             msg: Message = await self._send_to_private(message, ticket_id, True, username)
             await self.telebot.reply_to(
                 message=message,
@@ -983,7 +1010,7 @@ class HandlerMessages:
                 message_from=self.message_from.handler,
                 timestamp=message.date
             ); return
-        
+            
         except Exception as e:
             self.logger.error(f"Error handling group message: {e}")
 

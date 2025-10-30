@@ -29,8 +29,7 @@ class OpenedTickets:
 
 @dataclass
 class UserDetails:
-    id: int
-    is_bot: bool
+    id: str
     first_name: str
     username: str
     last_name: str
