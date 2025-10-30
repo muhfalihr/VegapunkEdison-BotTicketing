@@ -179,7 +179,7 @@ class HandlerTickets(BtAioMysql):
         """
         try:
             affected_rows = await self.execute(
-                UPDATE_USER_DETAILS, (id, first_name, username, last_name,)
+                UPDATE_USER_DETAILS, (first_name, username, last_name, id)
             )
             self.logger.info(f"Update user with id {id}")
             return affected_rows > 0

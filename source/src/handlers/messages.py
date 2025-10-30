@@ -841,11 +841,15 @@ class HandlerMessages:
 
                 if diff:
                     user_details = UserDetails(**user_details_tele)
+
                     if (user_details_db["username"] != user_details.username) or \
                         (user_details_db["first_name"] != user_details.first_name) or \
                             (user_details_db["last_name"] != user_details.last_name):
                         
-                        await self.tickets.update_user(**user_details.__dict__)
+                        await self.tickets.update_user(id=user_details.id,
+                                                       first_name=user_details.first_name,
+                                                       username=user_details.username,
+                                                       last_name=user_details.last_name)
 
             media_group_id = getattr(message, 'media_group_id', None)
             if media_group_id:
