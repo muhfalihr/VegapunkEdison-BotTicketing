@@ -60,6 +60,18 @@ messages:
     📝 *Details :*
     {message}
   
+  template_ticket_reply_to_message: |
+    🎫 *Ticket* #{ticket_id}
+
+    🪪 *{user_name}* (@{username})
+    ⏰ `{timestamp}`
+
+    👀 *Reply To:*
+    {reply_to_message}
+
+    📝 *Details :*
+    {message}
+  
   template_ticket_message_admin: |
     🎫 *Ticket* #{ticket_id}
 

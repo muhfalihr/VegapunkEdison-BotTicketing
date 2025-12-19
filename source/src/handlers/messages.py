@@ -17,6 +17,7 @@ from src.utility.const import (
     INVALID_MESSAGE_IN_USER, 
     BAD_WORDS, 
     MESSAGE_PATTERN,
+    MESSAGE_PATTERN_DETAILS,
     TIME_RANGES
 )
 
@@ -214,6 +215,46 @@ class HandlerMessages:
                     self._safe_format_markdown(caption, caption_entities))
         
         return "..."
+
+    def _get_formatted_reply_to_message_text(self, message: Message) -> str:
+        """
+        Extract and format reply to message text from different message types.
+        
+        Args:
+            message: The message to extract text from
+        
+        Returns:
+            Formatted message text (str).
+        """
+        if message.reply_to_message.content_type == "text":
+            message_json = MessageJson(**chakey(message.reply_to_message.json, "from", "_from"))
+            text = message.reply_to_message.text or "..."
+            entities = message_json.entities
+            
+            if not text:
+                return "..."
+            
+            return (self.markdown.escape_markdown(text) if not entities else 
+                    self._safe_format_markdown(text, entities))
+        
+        elif message.reply_to_message.content_type in ["document", "photo", "video"]:
+            if message.reply_to_message.content_type == "document":
+                message_json = MessageJsonDoc(**chakey(message.reply_to_message.json, "from", "_from"))
+            elif message.reply_to_message.content_type == "photo":
+                message_json = MessageJsonPhoto(**chakey(message.reply_to_message.json, "from", "_from"))
+            else:
+                message_json = MessageJsonVideo(**chakey(message.reply_to_message.json, "from", "_from"))
+            
+            caption = message.reply_to_message.caption or "..."
+            caption_entities = message_json.caption_entities
+            
+            if not caption:
+                return "..."
+            
+            return (self.markdown.escape_markdown(caption) if not caption_entities else 
+                    self._safe_format_markdown(caption, caption_entities))
+        
+        return "..."
     
     async def _send_to_group(self, ticket_id: int, message: Message) -> None:
         """
@@ -231,26 +272,61 @@ class HandlerMessages:
             message_text = self._get_formatted_message_text(message)
             message_text_non_format = self.markdown.escape_markdown(message.text or message.caption or "...")
 
+            reply_to_message_text = None
+            reply_to_message_text_non_format = None
+
+            if message.reply_to_message:
+                reply_to_message_text_raw = (message.reply_to_message.text or message.reply_to_message.caption or "...")
+
+                matches = search(reply_to_message_text_raw, MESSAGE_PATTERN_DETAILS)
+                if matches:
+                    details_message = matches.group(1)
+                    message.reply_to_message.text = details_message
+
+                reply_to_message_text = self._get_formatted_reply_to_message_text(message)
+                reply_to_message_text_non_format = self.markdown.escape_markdown(details_message)
+
             full_name = message.from_user.full_name
             username = self.markdown.escape_markdown(message.from_user.username)
             
-            initial_message_format = self.messages.replay_message(
-                self.template.messages.template_ticket_message, 
-                ticket_id=ticket_id,
-                user_name=full_name,
-                username=username,
-                timestamp=timestamp,
-                message=message_text,
-            )
+            if not message.reply_to_message:
+                initial_message_format = self.messages.replay_message(
+                    self.template.messages.template_ticket_message, 
+                    ticket_id=ticket_id,
+                    user_name=full_name,
+                    username=username,
+                    timestamp=timestamp,
+                    message=message_text,
+                )
 
-            initial_message_non_format = self.messages.replay_message(
-                self.template.messages.template_ticket_message, 
-                ticket_id=ticket_id,
-                user_name=full_name,
-                username=username,
-                timestamp=timestamp,
-                message=message_text_non_format,
-            )
+                initial_message_non_format = self.messages.replay_message(
+                    self.template.messages.template_ticket_message, 
+                    ticket_id=ticket_id,
+                    user_name=full_name,
+                    username=username,
+                    timestamp=timestamp,
+                    message=message_text_non_format,
+                )
+            else:
+                initial_message_format = self.messages.replay_message(
+                    self.template.messages.template_ticket_reply_to_message, 
+                    ticket_id=ticket_id,
+                    user_name=full_name,
+                    username=username,
+                    timestamp=timestamp,
+                    message=message_text,
+                    reply_to_message=reply_to_message_text
+                )
+
+                initial_message_non_format = self.messages.replay_message(
+                    self.template.messages.template_ticket_reply_to_message, 
+                    ticket_id=ticket_id,
+                    user_name=full_name,
+                    username=username,
+                    timestamp=timestamp,
+                    message=message_text_non_format,
+                    reply_to_message=reply_to_message_text_non_format
+                )
             
             if getattr(message, 'media_group_id', None):
                 media_group_id = self.storage.temp.get("media_group_id")

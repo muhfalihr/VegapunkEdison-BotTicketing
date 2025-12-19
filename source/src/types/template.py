@@ -10,6 +10,7 @@ class MessagesTemplate:
     reply_additional_message_private: str
     urgent_issue_messagge: str
     template_help: str
+    template_ticket_reply_to_message: str
     template_ticket_message: str
     template_ticket_message_admin: str
     template_reply_bot_message: str
