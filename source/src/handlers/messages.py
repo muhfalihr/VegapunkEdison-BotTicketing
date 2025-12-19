@@ -280,11 +280,11 @@ class HandlerMessages:
 
                 matches = search(reply_to_message_text_raw, MESSAGE_PATTERN_DETAILS)
                 if matches:
-                    details_message = matches.group(1)
-                    message.reply_to_message.text = details_message
+                    reply_to_message_text_raw = matches.group(1)
+                    message.reply_to_message.text = reply_to_message_text_raw
 
                 reply_to_message_text = self._get_formatted_reply_to_message_text(message)
-                reply_to_message_text_non_format = self.markdown.escape_markdown(details_message)
+                reply_to_message_text_non_format = self.markdown.escape_markdown(reply_to_message_text_raw)
 
             full_name = message.from_user.full_name
             username = self.markdown.escape_markdown(message.from_user.username)
