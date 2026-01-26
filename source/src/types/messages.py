@@ -22,8 +22,9 @@ class MessageJsonFrom:
 @dataclass
 class ForwardOrigin:
     type: str
-    sender_user: MessageJsonFrom
     date: int
+    sender_user: Optional[MessageJsonFrom] = None
+    sender_user_name: Optional[str] = None
 
 
 @dataclass
@@ -47,6 +48,9 @@ class MessageJson:
     entities: Optional[List[Dict[str, Any]]] = None
     has_protected_content: Optional[bool] = False
     link_preview_options: Optional[Dict[str, Any]] = None
+    forward_origin: Optional[ForwardOrigin] = None
+    forward_sender_name: Optional[str] = None
+    forward_date: Optional[int] = None
 
 
 @dataclass

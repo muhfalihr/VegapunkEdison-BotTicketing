@@ -170,3 +170,136 @@ class BtAioMysql:
                     logger.info(f"Created {len(table_definitions)} tables")
 
         await self._retry_on_failure(_create)
+
+
+class Manager:
+    def __init__(self, model_class):
+        self.model_class = model_class
+        self.filters = {}
+        self.limit = None
+        self.offset = None
+        self.order_by_fields = []
+
+    @property
+    def db(self):
+        return self.model_class.db
+
+    def filter(self, **kwargs):
+        self.filters.update(kwargs)
+        return self
+
+    def order_by(self, *fields):
+        self.order_by_fields.extend(fields)
+        return self
+
+    async def all(self):
+        query = f"SELECT * FROM {self.model_class._table_name}"
+        params = []
+        conditions = []
+
+        if self.filters:
+            for key, value in self.filters.items():
+                conditions.append(f"{key} = %s")
+                params.append(value)
+            query += " WHERE " + " AND ".join(conditions)
+
+        if self.order_by_fields:
+            query += " ORDER BY " + ", ".join(self.order_by_fields)
+
+        results = await self.db.fetch_all(query, tuple(params))
+        return [self.model_class(**row) for row in results]
+
+    async def get(self, **kwargs):
+        self.filters.update(kwargs)
+        query = f"SELECT * FROM {self.model_class._table_name}"
+        params = []
+        conditions = []
+
+        if self.filters:
+            for key, value in self.filters.items():
+                conditions.append(f"{key} = %s")
+                params.append(value)
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " LIMIT 1"
+
+        result = await self.db.fetch_one(query, tuple(params))
+        return self.model_class(**result) if result else None
+
+    async def exists(self) -> bool:
+        # Optimized exists query
+        query = f"SELECT 1 FROM {self.model_class._table_name}"
+        params = []
+        conditions = []
+
+        if self.filters:
+            for key, value in self.filters.items():
+                conditions.append(f"{key} = %s")
+                params.append(value)
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " LIMIT 1"
+        result = await self.db.fetch_one(query, tuple(params))
+        return bool(result)
+
+    async def update(self, **kwargs):
+        if not kwargs:
+            return 0
+        
+        query = f"UPDATE {self.model_class._table_name} SET "
+        set_clauses = []
+        params = []
+
+        for key, value in kwargs.items():
+            set_clauses.append(f"{key} = %s")
+            params.append(value)
+        
+        query += ", ".join(set_clauses)
+
+        conditions = []
+        if self.filters:
+            for key, value in self.filters.items():
+                conditions.append(f"{key} = %s")
+                params.append(value)
+            query += " WHERE " + " AND ".join(conditions)
+        
+        return await self.db.execute(query, tuple(params))
+
+    async def create(self, **kwargs):
+        keys = list(kwargs.keys())
+        values = list(kwargs.values())
+        
+        placeholders = ["%s"] * len(keys)
+        query = f"INSERT INTO {self.model_class._table_name} ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
+        
+        await self.db.execute(query, tuple(values))
+        return self.model_class(**kwargs)
+
+    async def delete(self):
+        query = f"DELETE FROM {self.model_class._table_name}"
+        params = []
+        conditions = []
+
+        if self.filters:
+            for key, value in self.filters.items():
+                conditions.append(f"{key} = %s")
+                params.append(value)
+            query += " WHERE " + " AND ".join(conditions)
+        
+        return await self.db.execute(query, tuple(params))
+
+
+
+class Model:
+    db: Optional[BtAioMysql] = None
+    _table_name: str = ""
+    _primary_key: str = "id"
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    @classmethod
+    @property
+    def objects(cls):
+        return Manager(cls)

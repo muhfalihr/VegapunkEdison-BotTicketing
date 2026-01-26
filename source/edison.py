@@ -19,6 +19,7 @@ from src.handlers.tickets import HandlerTickets
 from src.controller.message import SetupMessage
 from src.utility.formatter import MarkdownFormatter
 from src.controller.issue_generator import IssueGenerator
+from src.library.database import Model
 
 
 class BotTicketing(HandlerMessages):
@@ -41,6 +42,7 @@ class BotTicketing(HandlerMessages):
         self.messages: SetupMessage = SetupMessage()
         self.message_from: MessageFrom = MessageFrom()
         self.tickets: HandlerTickets = HandlerTickets()
+        Model.db = self.tickets
         self.markdown: MarkdownFormatter = MarkdownFormatter()
         self.issue_generator: IssueGenerator = IssueGenerator()
         self.handler_admin_ids: Optional[List[str]] = []

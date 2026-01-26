@@ -23,7 +23,7 @@ from src.utility.const import (
 
 from src.types.config import Config
 from src.types.template import Template
-from src.types.tickets import UserTickets, MessageFrom, UserDetails
+from src.types.tickets import MessageFrom, UserDetails
 from src.types.data_store import MessagesStore, MediaStores
 from src.types.messages import (
     Messages, 
@@ -580,7 +580,7 @@ class HandlerMessages:
                         timestamp=_message.date
                     ); return
                 
-                ticket_open = UserTickets(**ticket_open)
+        
                 ticket_id = ticket_open.ticket_id
                 initial_message = self.messages.replay_message(
                     self.template.messages.reply_additional_message_private, 
@@ -973,7 +973,7 @@ class HandlerMessages:
                         timestamp=message.date
                     ); return
 
-                ticket_open = UserTickets(**ticket_open)
+        
                 ticket_id = ticket_open.ticket_id
                 initial_message = self.messages.replay_message(
                     self.template.messages.reply_additional_message_private, 

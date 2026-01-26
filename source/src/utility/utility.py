@@ -4,7 +4,7 @@ import time
 import pytz
 import hashlib
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 
 
 def get_config_yaml(config_path: str = "config.yml") -> Dict[str, Any]:
@@ -50,7 +50,7 @@ def epodate(epoch: int, store=False) -> str:
     return dt_gmt7.strftime(fmt)
 
 
-def reltime(past_time: datetime) -> str:
+def reltime(past_time: Union[datetime, str]) -> str:
     """Convert a datetime to a human-readable relative time string.
     
     Args:
@@ -59,27 +59,36 @@ def reltime(past_time: datetime) -> str:
     Returns:
         A human-readable string like "5 minutes ago" or "3 months ago"
     """
-    if past_time.tzinfo is None:
-        past_time = past_time.replace()
+    if isinstance(past_time, str):
+        try:
+            past_time = datetime.strptime(past_time, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+             # Try other format or fallback?
+             pass
 
-    datetime_now = datetime.now()
-    diff = datetime_now - past_time
-    seconds_diff = diff.total_seconds()
-    
-    if seconds_diff < 60:
-        return "just now"
-    elif seconds_diff < 3600:  # 1 hour
-        return f"{int(seconds_diff // 60)} minutes ago"
-    elif seconds_diff < 86400:  # 1 day
-        return f"{int(seconds_diff // 3600)} hours ago"
-    elif seconds_diff < 604800:  # 1 week
-        return f"{diff.days} days ago"
-    elif seconds_diff < 2592000:  # 30 days
-        return f"{diff.days // 7} weeks ago"
-    elif seconds_diff < 31536000:  # 365 days
-        return f"{diff.days // 30} months ago"
-    else:
-        return f"{diff.days // 365} years ago"
+    if isinstance(past_time, datetime):
+        if past_time.tzinfo is None:
+            past_time = past_time.replace()
+
+        datetime_now = datetime.now()
+        diff = datetime_now - past_time
+        seconds_diff = diff.total_seconds()
+        
+        if seconds_diff < 60:
+            return "just now"
+        elif seconds_diff < 3600:  # 1 hour
+            return f"{int(seconds_diff // 60)} minutes ago"
+        elif seconds_diff < 86400:  # 1 day
+            return f"{int(seconds_diff // 3600)} hours ago"
+        elif seconds_diff < 604800:  # 1 week
+            return f"{diff.days} days ago"
+        elif seconds_diff < 2592000:  # 30 days
+            return f"{diff.days // 7} weeks ago"
+        elif seconds_diff < 31536000:  # 365 days
+            return f"{diff.days // 30} months ago"
+        else:
+            return f"{diff.days // 365} years ago"
+    return str(past_time)
 
 
 def chakey(json: Dict[str, Any], key: str, new_key: str) -> Dict[str, Any]:

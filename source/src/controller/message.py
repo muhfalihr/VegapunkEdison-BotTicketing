@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Literal
 from src.utility.utility import arson, reltime
 from src.types.messages import Messages
-from src.types.tickets import OpenedTickets, HistoryHandlerTickets, Handlers
+from src.types.models import Ticket, Handler, TicketMessage
 
 
 class SetupMessage:
@@ -21,12 +21,11 @@ class SetupMessage:
             return self._create_message(content, "Markdown")
         return self._create_message(content.format(**kwargs), "Markdown")
     
-    def open(self, opened_tickets: List[OpenedTickets], template1: str, template2: str, **kwargs) -> Messages:
+    def open(self, opened_tickets: List[Ticket], template1: str, template2: str, **kwargs) -> Messages:
         func = kwargs.get("func")
         opened_tickets_messages = "\n"
         
         for ticket in opened_tickets:
-            ticket = OpenedTickets(**ticket)
             chat_id = str(ticket.message_chat_id).replace("-100", "").replace("-", "")
             
             link_message = f"https://t.me/c/{chat_id}/{ticket.message_id}"
@@ -78,7 +77,7 @@ class SetupMessage:
         return self._create_message(full_content, "Markdown")
 
 
-    def history_message(self, template: str, content_template: str, contents: List[HistoryHandlerTickets], time_range: str):
+    def history_message(self, template: str, content_template: str, contents: List[Ticket], time_range: str):
         histories = "\n"
         space = (' ' * 3)
 
@@ -97,7 +96,7 @@ class SetupMessage:
         full_content = template.format(time_range=time_range.title(), history_handling_tickets=histories)
         return self._create_message(full_content, "Markdown")
 
-    def handlers_message(self, template: str, content_template: str, contents: List[Handlers], **kwargs):
+    def handlers_message(self, template: str, content_template: str, contents: List[Handler], **kwargs):
         func = kwargs.get("func")
         handlers = "\n"
         space = (' ' * 3)
