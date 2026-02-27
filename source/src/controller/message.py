@@ -101,12 +101,17 @@ class SetupMessage:
         handlers = "\n"
         space = (' ' * 3)
         
+        roles = {1: "User", 2: "Handler", 3: "Admin"}
+
         for content in contents:
             username = func(content.username)
+            role_name = roles.get(content.role_id, "Unknown")
             handlers += content_template.format(
                 space=space,
                 username=username,
-                user_id=content.user_id
+                user_id=content.id,
+                full_name=func(content.first_name) if content.first_name else "-",
+                role=role_name
             )
         
         full_content = template.format(user_handlers=handlers)

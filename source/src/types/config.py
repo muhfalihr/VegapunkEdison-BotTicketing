@@ -22,11 +22,19 @@ class DatabaseConfig:
     user: str
     password: str
     database: str
-    tables: List[str]
+
+@dataclass
+class RedisConfig:
+    host: str
+    port: int
+    db: int
+    password: Optional[str]
+    session_ttl: int
 
 @dataclass
 class Config:
     bot: BotConfig
     telegram: TelegramConfig
     database: DatabaseConfig
+    redis: RedisConfig
     timezone: str

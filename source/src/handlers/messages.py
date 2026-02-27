@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 from loguru import logger
 from typing import List, Dict, Any, Optional, Union
@@ -23,7 +24,7 @@ from src.utility.const import (
 
 from src.types.config import Config
 from src.types.template import Template
-from src.types.tickets import MessageFrom, UserDetails
+from src.types.tickets import MessageFrom
 from src.types.data_store import MessagesStore, MediaStores
 from src.types.messages import (
     Messages, 
@@ -62,7 +63,7 @@ class HandlerMessages:
     async def _ids_user_admin_handler(self):
         self.handler_admin_ids = (
             self.config.telegram.admin_ids + 
-            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+            [handler.id for handler in await self.tickets.get_all_handlers()]
         )
 
     async def _send_message(self, chat_id: Union[int, str], message_obj: Messages, 
@@ -882,50 +883,25 @@ class HandlerMessages:
                     parse_mode=initial_message.parse_mode
                 ); return
 
-            user_details_db = await self.tickets.get_user_details_by_id(message.from_user.id)
-            if not user_details_db:
-                await self.tickets.registration_user(
-                    id=message.from_user.id,
-                    is_bot=message.from_user.is_bot,
-                    first_name=message.from_user.first_name,
-                    username=message.from_user.username,
-                    last_name=message.from_user.last_name
+            # Ensure user exists and details are up to date
+            is_authorized = await self.tickets.ensure_user(
+                id=message.from_user.id,
+                is_bot=message.from_user.is_bot,
+                first_name=message.from_user.first_name,
+                username=message.from_user.username,
+                last_name=message.from_user.last_name
+            )
+
+            if not is_authorized:
+                unauthorized_message = self.messages.replay_message(
+                    self.template.messages.template_unauthorized_user
                 )
-            
-            if user_details_db:
-                user_details_tele = {
-                    "id": str(message.from_user.id),
-                    "is_bot": int(message.from_user.is_bot) if hasattr(message.from_user, "is_bot") else 0,
-                    "first_name": message.from_user.first_name,
-                    "username": message.from_user.username,
-                    "last_name": message.from_user.last_name,
-                }
-
-                exclude_keys = {"id"}
-                diff = {}
-                for key in user_details_tele:
-                    if key in exclude_keys:
-                        continue
-
-                    tele_value = user_details_tele.get(key)
-                    db_value = user_details_db.get(key)
-
-                    if tele_value != db_value:
-                        diff[key] = {"tele": tele_value, "db": db_value}
-
-                user_details_tele.pop("is_bot")
-
-                if diff:
-                    user_details = UserDetails(**user_details_tele)
-
-                    if (user_details_db["username"] != user_details.username) or \
-                        (user_details_db["first_name"] != user_details.first_name) or \
-                            (user_details_db["last_name"] != user_details.last_name):
-                        
-                        await self.tickets.update_user(id=user_details.id,
-                                                       first_name=user_details.first_name,
-                                                       username=user_details.username,
-                                                       last_name=user_details.last_name)
+                await self.telebot.reply_to(
+                    message=message,
+                    text=unauthorized_message.text,
+                    parse_mode=unauthorized_message.parse_mode
+                )
+                return
 
             media_group_id = getattr(message, 'media_group_id', None)
             if media_group_id:
@@ -1364,6 +1340,8 @@ class HandlerMessages:
     async def handler_regist_user_handler(self, message: Message):
         """
         Handler the command regist user handler.
+        Supports format: /regist <username> <role_id> <full_name>
+        If arguments are missing, uses details from the replied-to user.
 
         Args:
             message (Message): The incoming Telegram message object.
@@ -1371,46 +1349,50 @@ class HandlerMessages:
         Returns:
             None
         """
-        if not message.reply_to_message:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_must_reply_to_message
-            )
-        
-        if message.reply_to_message.from_user.id == self.config.telegram.bot_id:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_not_reply_bot
-            )
-
         if message.from_user.id not in self.config.telegram.admin_ids:
             return await self._send_error_response(
                 message=message,
                 template=self.template.messages.template_admin_only
             )
         
-        message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
-        if not message_reply_text:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_reply_message_text_none
-            )
+        # Parse arguments: /regist <username> <role_id> <full_name>
+        args = message.text.split()
+        
+        # Defaults from replied user
+        role_id = 2 # Default to handler role
+
+        if len(args) > 1:
+            username = args[1].lstrip('@')
+        if len(args) > 2:
+            try:
+                role_id = int(args[2])
+            except ValueError:
+                pass # Use default if not a number
+        if len(args) > 3:
+            full_name = " ".join(args[3:])
         
         await self.tickets.registration_handler(
-            user_id=message.reply_to_message.from_user.id,
-            username=message.reply_to_message.from_user.username
+            user_id=int(datetime.now().timestamp() * 1000),
+            username=username,
+            first_name=full_name,
+            role_id=role_id
         )
 
         # Refresh Get User Handler
         self.handler_admin_ids = (
             self.config.telegram.admin_ids + 
-            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+            [handler.id for handler in await self.tickets.get_all_handlers()]
         )
 
-        username = self.markdown.escape_markdown(message.reply_to_message.from_user.username)
-        initial_message = self.messages.reply_message_group(
-            self.template.messages.template_added_new_handler,
-            username=username
+        escaped_username = self.markdown.escape_markdown(username)
+        roles = {1: "User", 2: "Handler", 3: "Admin"}
+        role_name = roles.get(role_id, "Unknown")
+
+        initial_message = self.messages.replay_message(
+            self.template.messages.template_regist_success,
+            username=escaped_username,
+            full_name=self.markdown.escape_markdown(full_name),
+            role=role_name
         )
         await self.telebot.reply_to(
             message=message,
@@ -1497,7 +1479,7 @@ class HandlerMessages:
         # Refresh Get User Handler
         self.handler_admin_ids = (
             self.config.telegram.admin_ids + 
-            [handler.user_id for handler in await self.tickets.get_all_handlers()]
+            [handler.id for handler in await self.tickets.get_all_handlers()]
         )
         
         username = self.markdown.escape_markdown(message.reply_to_message.from_user.username)

@@ -1,3 +1,44 @@
+CREATE_TABLE_ROLES: str = """
+CREATE TABLE IF NOT EXISTS roles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
+INITIALIZE_ROLES: str = """
+INSERT INTO roles (id, name) VALUES 
+(1, 'user'), 
+(2, 'handler'), 
+(3, 'admin')
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+"""
+
+INITIALIZE_SYSTEM_USER: str = """
+INSERT INTO users (id, role_id, first_name, username, is_bot) VALUES 
+(0, 3, 'SYSTEM', 'SYSTEM_AUTO_CLOSE', 1)
+ON DUPLICATE KEY UPDATE 
+    role_id=VALUES(role_id), 
+    first_name=VALUES(first_name), 
+    username=VALUES(username), 
+    is_bot=VALUES(is_bot);
+"""
+
+CREATE_TABLE_USERS: str = """
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY,
+    role_id INT NOT NULL DEFAULT 1,
+    is_bot BOOLEAN DEFAULT FALSE,
+    first_name VARCHAR(255) NOT NULL,
+    username VARCHAR(255),
+    last_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (role_id) REFERENCES roles(id),
+    INDEX idx_role_id (role_id),
+    INDEX idx_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
 CREATE_TABLE_TICKETS: str = """
 CREATE TABLE IF NOT EXISTS tickets (
     ticket_id VARCHAR(64) PRIMARY KEY,
@@ -12,6 +53,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     handler_username VARCHAR(255) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     closed_at DATETIME NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (handler_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_user_id (user_id),
     INDEX idx_handler_id (handler_id),
     INDEX idx_status (status)
@@ -31,19 +74,10 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     message_from ENUM('admin', 'user', 'handler') DEFAULT 'user',
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_ticket_id (ticket_id),
     INDEX idx_user_id (user_id),
     INDEX idx_timestamp (timestamp)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-"""
-
-CREATE_TABLE_USERS_DETAILS: str = """
-CREATE TABLE IF NOT EXISTS usersv2 (
-    id BIGINT PRIMARY KEY,
-    is_bot BOOLEAN,
-    first_name VARCHAR(255) NOT NULL,
-    username VARCHAR(255),
-    last_name VARCHAR(255)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
@@ -54,18 +88,9 @@ CREATE TABLE IF NOT EXISTS banned_users (
     banned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     expires_at DATETIME NULL,
     banned_by BIGINT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (banned_by) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_banned_at (banned_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-"""
-
-CREATE_TABLE_HANDLERS: str = """
-CREATE TABLE IF NOT EXISTS handlersv2 (
-    user_id BIGINT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    INDEX idx_username (username),
-    INDEX idx_is_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
@@ -75,20 +100,21 @@ FROM information_schema.tables
 WHERE TABLE_SCHEMA = %s;
 """
 
+# Handler operations now use the users table and role_id
 INSERT_USER_FOR_HANDLER: str = """
-INSERT IGNORE INTO handlersv2 (user_id, username) VALUES (%s, %s)
+UPDATE users SET role_id = 2 WHERE id = %s
 """
 
 DELETE_USER_FROM_HANDLER: str = """
-DELETE FROM handlersv2 WHERE user_id = %s;
+UPDATE users SET role_id = 1 WHERE id = %s
 """
 
 GET_ALL_HANDLERS: str = """
-SELECT * FROM handlersv2
+SELECT * FROM users WHERE role_id = 2
 """
 
 CHECK_USER_IS_HANDLER: str = """
-SELECT COUNT(*) FROM handlersv2 WHERE user_id = %s
+SELECT COUNT(*) FROM users WHERE id = %s AND role_id = 2
 """
 
 CREATE_TICKET: str = """
@@ -97,12 +123,12 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 ADDED_USER_DETAILS: str = """
-INSERT INTO usersv2 (id, is_bot, first_name, username, last_name)
-VALUES (%s, %s, %s, %s, %s)
+INSERT INTO users (id, is_bot, first_name, username, last_name, role_id)
+VALUES (%s, %s, %s, %s, %s, 1)
 """
 
 UPDATE_USER_DETAILS: str = """
-UPDATE usersv2
+UPDATE users
 SET first_name = %s, username = %s, last_name = %s
 WHERE id = %s
 """
@@ -117,7 +143,7 @@ SELECT * FROM tickets WHERE ticket_id = %s
 """
 
 GET_USER_DETAILS_BY_ID: str = """
-SELECT * FROM usersv2 WHERE id = %s
+SELECT * FROM users WHERE id = %s
 """
 
 GET_TICKET_MESSAGES: str = """
@@ -181,5 +207,5 @@ ORDER BY created_at DESC
 """
 
 GET_USER_BY_USERNAME: str = """
-SELECT id FROM usersv2 WHERE username = %s
+SELECT id FROM users WHERE username = %s
 """

@@ -166,3 +166,4 @@ cython_debug/
 
 # testing
 testing/
+config.yml

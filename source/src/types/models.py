@@ -9,30 +9,34 @@ from src.library.database import Model
 
 class User(Model):
     """User model for the system"""
-    _table_name = "usersv2"
+    _table_name = "users"
     _primary_key = "id"
     
     id: int
+    role_id: int
     is_bot: bool
     first_name: str
     username: str
     last_name: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = datetime.now()
 
 
 class Handler(Model):
     """Handler model representing support staff"""
-    _table_name = "handlersv2"
-    _primary_key = "user_id"
+    _table_name = "users"
+    _primary_key = "id"
     
-    user_id: int
+    id: int
+    role_id: int
+    first_name: str
     username: str
-    added_at: datetime
-    is_active: int
+    is_active: bool
     
     @classmethod
     async def is_handler(cls, user_id: int) -> bool:
         """Check if a user is a handler"""
-        result = await cls.objects.filter(user_id=user_id).exists()
+        result = await cls.objects.filter(id=user_id, role_id=2).exists()
         return result
 
 

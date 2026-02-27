@@ -47,8 +47,11 @@ messages:
     `/history` – Display a list of previously resolved or closed tickets.
 
     🛡️ *Admin Commands*
-    `/regist` – Register a new handler (support agent) to the system.  
-    `/deregist` – Deregister or remove an existing handler.  
+    `/regist <user> <role> <name>` – Register a user.
+        ↳ `user`: Username (without @)
+        ↳ `role`: 1 (User), 2 (Handler), 3 (Admin)
+        ↳ `name`: Full Name
+    `/deregist` – Deregister or remove an existing handler (must reply to user).  
     `/handlers` – View a list of currently registered handlers.
   
   template_ticket_message: |
@@ -193,7 +196,20 @@ messages:
     📇 List of User Handlers:{user_handlers}
   
   template_handlers_content: |
-    {space}• 🪪 @{username} | 🏷 {user_id}
+    {space}• 🪪 @{username} ({full_name}) | 🏷 {user_id} | 🛡 {role}
   
   template_empty_handlers: |
     📂 No User Handlers available yet.
+
+  template_unauthorized_user: |
+    🚫 *ACCESS DENIED*: You are not registered in our system.
+    Your message cannot be processed. Please contact an administrator for registration.
+    Thank you! 🤖
+
+  template_regist_success: |
+    🚀 *REGISTRATION SUCCESSFUL* 🚀
+    
+    🪪 *Name:* {full_name}
+    👤 *Username:* @{username}
+    🏷 *Role:* {role}
+    ✅ User can now access the bot according to their permissions.

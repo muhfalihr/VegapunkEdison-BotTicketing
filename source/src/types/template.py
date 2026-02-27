@@ -44,6 +44,8 @@ class MessagesTemplate:
     template_handlers: str
     template_handlers_content: str
     template_empty_handlers: str
+    template_unauthorized_user: str
+    template_regist_success: str
     
 @dataclass
 class Template:

@@ -20,6 +20,7 @@ from src.controller.message import SetupMessage
 from src.utility.formatter import MarkdownFormatter
 from src.controller.issue_generator import IssueGenerator
 from src.library.database import Model
+from src.library.redis import BtRedis
 
 
 class BotTicketing(HandlerMessages):
@@ -41,7 +42,13 @@ class BotTicketing(HandlerMessages):
         self.storage: Store = Store()
         self.messages: SetupMessage = SetupMessage()
         self.message_from: MessageFrom = MessageFrom()
+        
+        # Redis Initialization
+        self.redis = BtRedis(self.config.redis)
+        
         self.tickets: HandlerTickets = HandlerTickets()
+        self.tickets.set_redis(self.redis, self.config.redis.session_ttl)
+        
         Model.db = self.tickets
         self.markdown: MarkdownFormatter = MarkdownFormatter()
         self.issue_generator: IssueGenerator = IssueGenerator()
@@ -120,16 +127,38 @@ class BotTicketing(HandlerMessages):
         async def handle_message_from_admin(message):
             await self.handler_message_group(message)
 
+    async def _auto_close_task(self):
+        """
+        Background task to periodically check for expired ticket sessions.
+        """
+        while True:
+            try:
+                self.logger.debug("Running auto-close check for expired tickets...")
+                await self.tickets.check_and_close_expired_tickets(self.config.timezone)
+            except Exception as e:
+                self.logger.error(f"Error in auto-close task: {e}")
+            
+            # Check every 5 minutes
+            await asyncio.sleep(300)
 
     async def start_polling(self):
         async with ClientSession() as session:
             asyncio_helper.session = session
             try:
+                # Connect to Redis
+                await self.redis.connect()
+                
                 await self.tickets.setup_tables(
-                    database=self.config.database.database,
-                    list_tables=self.config.database.tables
+                    database=self.config.database.database
                 )
+                
+                # Initialize admins from config
+                await self.tickets.initialize_admins(self.config.telegram.admin_ids)
+
                 await self._ids_user_admin_handler()
+                
+                # Start auto-close background task
+                asyncio.create_task(self._auto_close_task())
                 
                 await self.telebot.delete_webhook(drop_pending_updates=True)
                 
@@ -140,7 +169,9 @@ class BotTicketing(HandlerMessages):
             except KeyboardInterrupt:
                 logger.info("Polling interrupted by user. Shutting down gracefully...")
                 await self.telebot.close()
+                await self.redis.disconnect()
                 await asyncio.sleep(1)
             except Exception as e:
                 logger.error(f"Polling error: {e}", exc_info=True)
+                await self.redis.disconnect()
                 raise

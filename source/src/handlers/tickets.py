@@ -1,16 +1,19 @@
 import re
 import traceback
+import asyncio
 
 from typing import List, Dict, Any, Optional, Union
 from loguru import logger
 from datetime import datetime
 
 from src.localization.queries import (
+    CREATE_TABLE_ROLES,
+    INITIALIZE_ROLES,
+    INITIALIZE_SYSTEM_USER,
+    CREATE_TABLE_USERS,
     CREATE_TABLE_TICKETS,
     CREATE_TABLE_TICKET_MESSAGES,
     CREATE_TABLE_BANNED_USERS,
-    CREATE_TABLE_HANDLERS,
-    CREATE_TABLE_USERS_DETAILS,
     GET_ALL_TABLES,
     GET_HISTORY_USER_TICKETS,
     GET_HISTORY_HANDLER_TICKETS,
@@ -26,6 +29,7 @@ from src.types.models import (
 )
 from src.utility.utility import generate_id, curtime, epodate
 from src.library.database import BtAioMysql
+from src.library.redis import BtRedis
 
 
 class HandlerTickets(BtAioMysql):
@@ -40,6 +44,54 @@ class HandlerTickets(BtAioMysql):
         """
         super().__init__(pool_size, connect_timeout)
         self.logger = logger
+        self.redis: Optional[BtRedis] = None
+        self.session_ttl: int = 86400 # Default 24h
+
+    def set_redis(self, redis_client: BtRedis, session_ttl: int):
+        self.redis = redis_client
+        self.session_ttl = session_ttl
+
+    async def _update_ticket_session(self, ticket_id: str):
+        """
+        Update or extend ticket session in Redis.
+        Session is extended by resetting TTL to session_ttl.
+        """
+        if not self.redis:
+            return
+        
+        try:
+            key = f"ticket_session:{ticket_id}"
+            # Logic: 24 - (sisa waktu sesi) basically means resetting to 24 hours
+            # because if we add (24 - sisa), it becomes sisa + 24 - sisa = 24.
+            await self.redis.client.set(key, "active", ex=self.session_ttl)
+            self.logger.debug(f"Extended session for ticket {ticket_id}")
+        except Exception as e:
+            self.logger.error(f"Failed to update ticket session in Redis: {e}")
+
+    async def check_and_close_expired_tickets(self, timezone: str):
+        """
+        Check database for open tickets and close those that don't have an active session in Redis.
+        """
+        if not self.redis:
+            return
+
+        try:
+            open_tickets = await self.get_opened_tickets()
+            for ticket in open_tickets:
+                key = f"ticket_session:{ticket.ticket_id}"
+                is_active = await self.redis.client.exists(key)
+                
+                if not is_active:
+                    self.logger.info(f"Ticket {ticket.ticket_id} session expired. Auto-closing...")
+                    # Use a system handler ID or 0 for auto-close
+                    await self.close_ticket(
+                        ticket_id=ticket.ticket_id,
+                        handler_id=0,
+                        handler_username="SYSTEM_AUTO_CLOSE",
+                        timezone=timezone
+                    )
+        except Exception as e:
+            self.logger.error(f"Error during auto-closing expired tickets: {e}")
     
     async def _query_time_range(self, column: str, time_range: str):
         if not isinstance(column, str) and not isinstance(time_range, str):
@@ -57,7 +109,7 @@ class HandlerTickets(BtAioMysql):
             raise ValueError("Invalid time range. Use 'today', 'weekly', 'monthly', or 'yearly'.")
         return date_filter
     
-    async def setup_tables(self, database: str, list_tables: List[str]) -> None:
+    async def setup_tables(self, database: str) -> None:
         """
         Create required tables for the handler system if they do not exist.
         """
@@ -68,11 +120,11 @@ class HandlerTickets(BtAioMysql):
 
             tables_to_create = [
                 table_def for table_def in [
+                    CREATE_TABLE_ROLES,
+                    CREATE_TABLE_USERS,
                     CREATE_TABLE_TICKETS, 
                     CREATE_TABLE_TICKET_MESSAGES, 
-                    CREATE_TABLE_BANNED_USERS, 
-                    CREATE_TABLE_HANDLERS,
-                    CREATE_TABLE_USERS_DETAILS
+                    CREATE_TABLE_BANNED_USERS
                 ]
                 if self._extract_table_name(table_def) not in existing_table_names
             ]
@@ -83,9 +135,33 @@ class HandlerTickets(BtAioMysql):
             else:
                 self.logger.info("All required tables already exist")
 
+            # Always ensure roles and system user are initialized
+            await self.execute(INITIALIZE_ROLES)
+            await self.execute(INITIALIZE_SYSTEM_USER)
+            self.logger.info("Initialized roles and system user")
+
         except Exception as e:
             self.logger.error(f"Failed to setup handler system tables: {e}")
             self.logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise
+
+    async def initialize_admins(self, admin_ids: List[int]) -> None:
+        """
+        Ensure all admin IDs from config are registered in the users table with admin role.
+        """
+        try:
+            for admin_id in admin_ids:
+                # Use a raw query with ON DUPLICATE KEY UPDATE to ensure role_id is set to 3
+                # even if the user already exists with a different role.
+                query = """
+                INSERT INTO users (id, role_id, first_name, username, is_bot)
+                VALUES (%s, 3, 'ADMIN', 'CONFIG_ADMIN', 0)
+                ON DUPLICATE KEY UPDATE role_id = 3
+                """
+                await self.execute(query, (admin_id,))
+                self.logger.info(f"Initialized admin ID {admin_id} from config")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize admins: {e}")
             raise
 
     def _extract_table_name(self, create_table_statement: str) -> str:
@@ -102,6 +178,27 @@ class HandlerTickets(BtAioMysql):
             self.logger.warning(f"Could not extract table name from: {str(e)}")
             return
     
+    async def register_user(self, id: int, first_name: str, username: str, role_id: int, last_name: str = None, is_bot: bool = False):
+        """
+        Register or update a user with specific details and role.
+        """
+        try:
+            query = """
+            INSERT INTO users (id, role_id, first_name, username, last_name, is_bot)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE 
+                role_id = VALUES(role_id),
+                first_name = VALUES(first_name),
+                username = VALUES(username),
+                last_name = VALUES(last_name)
+            """
+            await self.execute(query, (id, role_id, first_name, username, last_name, is_bot))
+            self.logger.info(f"Registered/Updated user {id} (@{username}) with role_id {role_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to register user {id}: {e}")
+            raise
+
     async def registration_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str):
         try:
             await User.objects.create(
@@ -109,16 +206,13 @@ class HandlerTickets(BtAioMysql):
                 is_bot=is_bot, 
                 first_name=first_name, 
                 username=username, 
-                last_name=last_name
+                last_name=last_name,
+                role_id=1 # Default to user role
             )
             self.logger.info(f"Added user {username} with id {id}")
             return True
         except Exception as e:
             self.logger.error(f"Failed to add user {username}: {str(e)}")
-            # Fallback to update if duplicate entry? Or raise.
-            # Assuming 'create' fails if duplicate. 
-            # Original code used INSERT, which might fail on duplicate key.
-            # But the original code didn't use INSERT IGNORE or ON DUPLICATE KEY UPDATE.
             raise
     
     async def update_user(self, id: int, first_name: str, username: str, last_name: str):
@@ -133,6 +227,51 @@ class HandlerTickets(BtAioMysql):
         except Exception as e:
             self.logger.error(f"Failed to update user with id {id}: {str(e)}")
             raise
+
+    async def ensure_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str):
+        """
+        Check if user exists and has correct details, update as needed.
+        Does not allow registration of new users.
+        """
+        try:
+            # 1. Try to find user by ID
+            user = await User.objects.filter(id=id).get()
+            
+            if user:
+                # Check for changes and update details if needed
+                has_changes = (
+                    user.first_name != first_name or
+                    user.username != username or
+                    user.last_name != last_name
+                )
+                
+                if has_changes:
+                    self.logger.info(f"User {id} details changed, updating...")
+                    return await self.update_user(id, first_name, username, last_name)
+                
+                return True
+
+            # 2. If ID not found, try to find by username (if available)
+            if username:
+                user_by_username = await User.objects.filter(username=username).get()
+                if user_by_username:
+                    self.logger.info(f"User found by username @{username}, updating ID from {user_by_username.id} to {id}")
+                    # Use raw query to update primary key
+                    query = """
+                    UPDATE users 
+                    SET id = %s, first_name = %s, last_name = %s, is_bot = %s
+                    WHERE username = %s
+                    """
+                    affected_rows = await self.execute(query, (id, first_name, last_name, is_bot, username))
+                    return affected_rows > 0
+
+            # User not found in database by either ID or Username
+            self.logger.warning(f"Unauthorized access attempt by user {id} (@{username})")
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Failed to ensure user {id}: {str(e)}")
+            raise
     
     async def get_userid_by_username(self, username: str):
         try:
@@ -142,25 +281,24 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to get userid with {username}: {str(e)}")
             raise
     
-    async def registration_handler(self, user_id: int, username: str) -> bool:
+    async def registration_handler(self, user_id: int, username: str, first_name: str = None, role_id: int = 2) -> bool:
         try:
-            # Check if exists first to avoid error? Or use INSERT IGNORE equivalent.
-            # Existing code used INSERT IGNORE query.
-            # My simple ORM 'create' does INSERT.
-            # I'll check existence first.
-            if await Handler.objects.filter(user_id=user_id).exists():
-                return False
-            
-            await Handler.objects.create(user_id=user_id, username=username)
-            self.logger.info(f"Registered new handler: {username} (ID: {user_id})")
-            return True
+            # Use register_user to ensure user is created or updated with the specified role and details
+            return await self.register_user(
+                id=user_id,
+                first_name=first_name or "HANDLER",
+                username=username,
+                role_id=role_id,
+                is_bot=False
+            )
         except Exception as e:
             self.logger.error(f"Failed to register handler {username}: {str(e)}")
             raise
     
     async def deregistration_handler(self, user_id: int) -> bool:
         try:
-            affected_rows = await Handler.objects.filter(user_id=user_id).delete()
+            # Update user role back to user (role_id = 1)
+            affected_rows = await User.objects.filter(id=user_id).update(role_id=1)
             self.logger.info(f"Deregistered handler: (ID: {user_id})")
             return affected_rows > 0
         except Exception as e:
@@ -203,6 +341,10 @@ class HandlerTickets(BtAioMysql):
                 status=status
             )
             self.logger.info(f"Created ticket {ticket_id} for user {username}")
+            
+            # Start session in Redis
+            await self._update_ticket_session(ticket_id)
+            
             return True
         except Exception as e:
             self.logger.error(f"Failed to create ticket for user {username}: {str(e)}")
@@ -235,6 +377,10 @@ class HandlerTickets(BtAioMysql):
                 timestamp=timestamp_dt
             )
             self.logger.debug(f"Added message to ticket {ticket_id} by {username}")
+            
+            # Extend session in Redis
+            await self._update_ticket_session(ticket_id)
+            
             return True
         except Exception as e:
             self.logger.error(f"Failed to add message to ticket {ticket_id}: {str(e)}")
@@ -253,10 +399,7 @@ class HandlerTickets(BtAioMysql):
             # Complex query, using fetch_all and manually converting to Ticket model
             result = await self.fetch_all(GET_HISTORY_HANDLER_TICKETS, (handler_id,))
             tickets = [
-                Ticket(**ticket) # Note: This might fail if SQL returns fields not in Ticket model or misses some.
-                                 # GET_HISTORY_HANDLER_TICKETS returns ticket_id, issue, status, created_at, closed_at, handler_username
-                                 # Ticket model expects more fields if strict. But Model __init__ just sets kwargs.
-                                 # So it acts as a partial model.
+                Ticket(**ticket)
                 for ticket in result
             ]
             self.logger.debug(f"Retrieved {len(tickets)} tickets for handler user {handler_id}")
@@ -278,7 +421,7 @@ class HandlerTickets(BtAioMysql):
                 Ticket(**ticket)
                 for ticket in result
             ]
-            self.logger.debug(f"Retrieved {len(tickets)} tickets for handler user {user_id}")
+            self.logger.debug(f"Retrieved {len(tickets)} tickets for user {user_id}")
             return tickets
         except Exception as e:
             self.logger.error(f"Failed to retrieve tickets for user {user_id}: {str(e)}")
@@ -300,6 +443,11 @@ class HandlerTickets(BtAioMysql):
             if ticket:
                 await ticket.close(handler_id, handler_username)
                 self.logger.info(f"Ticket {ticket_id} closed by handler {handler_username}")
+                
+                # Clear Redis session if it exists
+                if self.redis:
+                    await self.redis.client.delete(f"ticket_session:{ticket_id}")
+                
                 return True
             return False
         except Exception as e:
@@ -308,9 +456,6 @@ class HandlerTickets(BtAioMysql):
     
     async def get_closed_ticket_by_ticketid(self, id: str):
         try:
-            # GET_CLOSED_TICKETS_BY_TICKETID returns subset.
-            # Ticket.objects.get would return all columns but we want to filter by status='closed' too.
-            # Original: SELECT ticket_id, handler_username, closed_at FROM tickets WHERE ticket_id = %s AND status = 'closed'
             ticket = await Ticket.objects.filter(ticket_id=id, status='closed').get()
             return ticket
         except Exception as e:
