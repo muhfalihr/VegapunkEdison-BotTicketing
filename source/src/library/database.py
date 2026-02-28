@@ -12,10 +12,12 @@ from src.localization.config import config
 class BtAioMysql:
     """Asynchronous MySQL connection manager with connection pooling."""
     
-    def __init__(self, retries: int = 3, pool_size: int = 10, connect_timeout: int = 10):
+    def __init__(self, retries: int = 3, retry_delay: int = 5, pool_size: int = 10, connect_timeout: int = 10):
         """Initialize the MySQL connection manager.
         
         Args:
+            retries: Number of retries for transient errors
+            retry_delay: Delay between retries in seconds
             pool_size: Maximum number of connections in the pool
             connect_timeout: Connection timeout in seconds
         """
@@ -23,6 +25,7 @@ class BtAioMysql:
         self.pool: Optional[_PoolContextManager] = None
         self.logger = logger
         self.retries = retries
+        self.retry_delay = retry_delay
         self.pool_size = pool_size
         self.connect_timeout = connect_timeout
     

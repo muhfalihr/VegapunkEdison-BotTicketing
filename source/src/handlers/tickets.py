@@ -42,7 +42,7 @@ class HandlerTickets(BtAioMysql):
             pool_size: Maximum number of connections in the pool
             connect_timeout: Connection timeout in seconds
         """
-        super().__init__(pool_size, connect_timeout)
+        super().__init__(pool_size=pool_size, connect_timeout=connect_timeout)
         self.logger = logger
         self.redis: Optional[BtRedis] = None
         self.session_ttl: int = 86400 # Default 24h
