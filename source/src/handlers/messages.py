@@ -1086,6 +1086,25 @@ class HandlerMessages:
             None
         """
         try:
+            is_authorized = await self.tickets.ensure_user(
+                id=message.from_user.id,
+                is_bot=message.from_user.is_bot,
+                first_name=message.from_user.first_name,
+                username=message.from_user.username,
+                last_name=message.from_user.last_name
+            )
+
+            if not is_authorized:
+                unauthorized_message = self.messages.replay_message(
+                    self.template.messages.template_unauthorized_user
+                )
+                await self.telebot.reply_to(
+                    message=message,
+                    text=unauthorized_message.text,
+                    parse_mode=unauthorized_message.parse_mode
+                )
+                return
+
             if message.from_user.id not in self.handler_admin_ids:
                 return await self._send_error_response(
                     message=message,
@@ -1130,6 +1149,25 @@ class HandlerMessages:
                 message=message,
                 template=self.template.messages.template_close_ticket_not_reply
             )
+        
+        is_authorized = await self.tickets.ensure_user(
+            id=message.from_user.id,
+            is_bot=message.from_user.is_bot,
+            first_name=message.from_user.first_name,
+            username=message.from_user.username,
+            last_name=message.from_user.last_name
+        )
+
+        if not is_authorized:
+            unauthorized_message = self.messages.replay_message(
+                self.template.messages.template_unauthorized_user
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=unauthorized_message.text,
+                parse_mode=unauthorized_message.parse_mode
+            )
+            return
         
         if message.from_user.id not in self.handler_admin_ids:
             return await self._send_error_response(
@@ -1207,6 +1245,25 @@ class HandlerMessages:
                 message=message,
                 template=self.template.messages.template_must_reply_ticket
             )
+        
+        is_authorized = await self.tickets.ensure_user(
+            id=message.from_user.id,
+            is_bot=message.from_user.is_bot,
+            first_name=message.from_user.first_name,
+            username=message.from_user.username,
+            last_name=message.from_user.last_name
+        )
+
+        if not is_authorized:
+            unauthorized_message = self.messages.replay_message(
+                self.template.messages.template_unauthorized_user
+            )
+            await self.telebot.reply_to(
+                message=message,
+                text=unauthorized_message.text,
+                parse_mode=unauthorized_message.parse_mode
+            )
+            return
         
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
