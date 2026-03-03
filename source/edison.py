@@ -64,46 +64,70 @@ class BotTicketing(HandlerMessages):
 
         @self.telebot.message_handler(commands=["regist"])
         async def regist_handler(message):
-            await self.handler_regist_user_handler(message)
+            if await self.tickets.get_user_role(message.from_user.username) == 3:
+                await self.handler_regist_user_handler(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_admin_only)
         
 
         @self.telebot.message_handler(commands=["deregist"])
         async def deregist_handler(message):
-            await self.handler_deregist_user_handler(message)
+            if await self.tickets.get_user_role(message.from_user.username) == 3:
+                await self.handler_deregist_user_handler(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_admin_only)
 
 
         @self.telebot.message_handler(commands=["handlers"])
         async def user_handler(message):
-            await self.handler_get_user_handler(message)
+            if await self.tickets.get_user_role(message.from_user.username) == 3:
+                await self.handler_get_user_handler(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_admin_only)
 
 
         @self.telebot.message_handler(commands=["start"])
         async def start_handler(message):
-            await self.handler_message_start(message)
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+                await self.handler_message_start(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_warning_message)
 
 
         @self.telebot.message_handler(commands=["close"], 
                                       chat_types=["group", "supergroup"])
         async def close_ticket_handler(message):
-            await self.handler_closed_tickets(message)
+            if await self.tickets.get_user_role(message.from_user.username) == 2:
+                await self.handler_closed_tickets(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_user_not_handler)
 
 
         @self.telebot.message_handler(commands=["open"], 
                                       chat_types=["group", "supergroup"])
         async def open_ticket_handler(message):
-            await self.handler_open_tickets(message)
+            if await self.tickets.get_user_role(message.from_user.username) == 2:
+                await self.handler_open_tickets(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_user_not_handler)
         
 
         @self.telebot.message_handler(commands=["conversation"], 
                                       chat_types=["private", "group", "supergroup"])
         async def conversation_handler(message):
-            await self.handler_conversation(message)
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+                await self.handler_conversation(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_warning_message)
         
 
         @self.telebot.message_handler(commands=["history"], 
                                       chat_types=["private", "group", "supergroup"])
         async def history_handler(message):
-            await self.handler_history(message)
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+                await self.handler_history(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_warning_message)
         
 
         @self.telebot.callback_query_handler(func=lambda call: True if call.data in TIME_RANGES.split(",") else False)
@@ -115,17 +139,47 @@ class BotTicketing(HandlerMessages):
                                       chat_types=["group", "supergroup"], 
                                       func=lambda msg: invalid_command(msg.text, "commands", commands=COMMANDS))
         async def typo_command_handler(message):
-            await self.handler_typo_command(message)
+            user_role = await self.tickets.ensure_user(
+                id=message.from_user.id,
+                is_bot=message.from_user.is_bot,
+                first_name=message.from_user.first_name,
+                username=message.from_user.username,
+                last_name=message.from_user.last_name
+            )
+            if user_role in [2, 3]:
+                await self.handler_typo_command(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_user_not_handler)
 
         
         @self.telebot.message_handler(content_types=["text", "document", "photo", "video"], chat_types=["private"])
         async def handle_message_from_user(message):
-            await self.handler_message_private(message)
+            user_role = await self.tickets.ensure_user(
+                id=message.from_user.id,
+                is_bot=message.from_user.is_bot,
+                first_name=message.from_user.first_name,
+                username=message.from_user.username,
+                last_name=message.from_user.last_name
+            )
+            if user_role in [1, 2, 3]:
+                await self.handler_message_private(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_warning_message)
         
 
         @self.telebot.message_handler(content_types=["text", "document", "photo", "video"], chat_types=["group", "supergroup"])
         async def handle_message_from_admin(message):
-            await self.handler_message_group(message)
+            user_role = await self.tickets.ensure_user(
+                id=message.from_user.id,
+                is_bot=message.from_user.is_bot,
+                first_name=message.from_user.first_name,
+                username=message.from_user.username,
+                last_name=message.from_user.last_name
+            )
+            if user_role in [2, 3]:
+                await self.handler_message_group(message)
+            else:
+                await self._send_error_response(message, self.template.messages.template_user_not_handler)
 
     async def _auto_close_task(self):
         """
@@ -154,8 +208,6 @@ class BotTicketing(HandlerMessages):
                 
                 # Initialize admins from config
                 await self.tickets.initialize_admins(self.config.telegram.admin_ids)
-
-                await self._ids_user_admin_handler()
                 
                 # Start auto-close background task
                 asyncio.create_task(self._auto_close_task())

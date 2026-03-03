@@ -228,10 +228,10 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to update user with id {id}: {str(e)}")
             raise
 
-    async def ensure_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str):
+    async def ensure_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str) -> int:
         """
-        Check if user exists and has correct details, update as needed.
-        Does not allow registration of new users.
+        Check if user exists, update details if needed, and return their role_id.
+        Registers new users if they don't exist.
         """
         try:
             # 1. Try to find user by ID
@@ -247,27 +247,34 @@ class HandlerTickets(BtAioMysql):
                 
                 if has_changes:
                     self.logger.info(f"User {id} details changed, updating...")
-                    return await self.update_user(id, first_name, username, last_name)
+                    await self.update_user(id, first_name, username, last_name)
                 
-                return True
+                return user.role_id
 
             # 2. If ID not found, try to find by username (if available)
             if username:
                 user_by_username = await User.objects.filter(username=username).get()
                 if user_by_username:
                     self.logger.info(f"User found by username @{username}, updating ID from {user_by_username.id} to {id}")
-                    # Use raw query to update primary key
+                    # Use raw query to update primary key and other fields
                     query = """
                     UPDATE users 
                     SET id = %s, first_name = %s, last_name = %s, is_bot = %s
                     WHERE username = %s
                     """
-                    affected_rows = await self.execute(query, (id, first_name, last_name, is_bot, username))
-                    return affected_rows > 0
+                    await self.execute(query, (id, first_name, last_name, is_bot, username))
+                    return user_by_username.role_id
 
-            # User not found in database by either ID or Username
-            self.logger.warning(f"Unauthorized access attempt by user {id} (@{username})")
-            return False
+            # 3. User not found, register as new user
+            self.logger.info(f"Registering new user {id} (@{username})")
+            await self.registration_user(
+                id=id,
+                is_bot=is_bot,
+                first_name=first_name,
+                username=username,
+                last_name=last_name
+            )
+            return 1 # Default role for new users
             
         except Exception as e:
             self.logger.error(f"Failed to ensure user {id}: {str(e)}")
@@ -305,6 +312,17 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to deregister handler (ID: {user_id}): {str(e)}")
             raise
 
+    async def get_user_role(self, username: str) -> int:
+        """
+        Retrieve the role_id for a specific user by username.
+        """
+        try:
+            user = await User.objects.filter(username=username).get()
+            return user.role_id if user else 1 # Default to user role
+        except Exception as e:
+            self.logger.error(f"Failed to get user role for @{username}: {str(e)}")
+            return 1
+
     async def get_all_handlers(self) -> List[Handler]:
         try:
             handlers = await Handler.objects.all()
@@ -322,13 +340,30 @@ class HandlerTickets(BtAioMysql):
             raise
     
     async def create_ticket(
-            self, ticket_id: str, user_id: str, message_id: int, message_chat_id: int,
+            self, ticket_id: str, user_id: int, message_id: int, message_chat_id: int,
             username: str, userfullname: str, issue: str, timestamp: int) -> bool:
         
         status = 'open'
         created_at = epodate(timestamp, store=True)
 
         try:
+            # Ensure user exists in users table to satisfy foreign key constraint
+            user_exists = await User.objects.filter(username=username).exists()
+            if not user_exists:
+                self.logger.info(f"User {user_id} (@{username}) not found in users table, registering...")
+                try:
+                    await self.registration_user(
+                        id=user_id,
+                        is_bot=False, # Default to False
+                        first_name=userfullname, # Using userfullname for first_name if we don't have separate names
+                        username=username,
+                        last_name=None
+                    )
+                except Exception as reg_error:
+                    self.logger.warning(f"Failed to register user {user_id} during ticket creation: {reg_error}")
+                    # If registration fails, we still try to create the ticket
+                    # as it might have been created by another process.
+
             await Ticket.objects.create(
                 ticket_id=ticket_id,
                 user_id=user_id,
@@ -365,6 +400,23 @@ class HandlerTickets(BtAioMysql):
         timestamp_dt = epodate(timestamp, store=True)
 
         try:
+            # Ensure user exists in users table to satisfy foreign key constraint
+            user_exists = await User.objects.filter(id=user_id).exists()
+            if not user_exists:
+                self.logger.info(f"User {user_id} (@{username}) not found in users table, registering...")
+                try:
+                    await self.registration_user(
+                        id=user_id,
+                        is_bot=False, # Default to False
+                        first_name=userfullname, # Using userfullname for first_name if we don't have separate names
+                        username=username,
+                        last_name=None
+                    )
+                except Exception as reg_error:
+                    self.logger.warning(f"Failed to register user {user_id} during message addition: {reg_error}")
+                    # If registration fails (e.g. race condition), we still try to create the message
+                    # as it might have been created by another process in the meantime.
+
             await TicketMessage.objects.create(
                 ticket_id=ticket_id,
                 user_id=user_id,

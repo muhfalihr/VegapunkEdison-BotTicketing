@@ -57,14 +57,6 @@ class HandlerMessages:
         self.markdown: Optional[MarkdownFormatter] = None
         self.issue_generator: Optional[IssueGenerator] = None
         self.message_from: Optional[MessageFrom] = None
-        self.handler_admin_ids: Optional[List[str]] = []
-
-
-    async def _ids_user_admin_handler(self):
-        self.handler_admin_ids = (
-            self.config.telegram.admin_ids + 
-            [handler.id for handler in await self.tickets.get_all_handlers()]
-        )
 
     async def _send_message(self, chat_id: Union[int, str], message_obj: Messages, 
                            message_type: str = "text", media_id: str = None) -> Message:
@@ -994,12 +986,6 @@ class HandlerMessages:
                     template=self.template.messages.template_length_too_long_message
                 )
             
-            if message.from_user.id not in self.handler_admin_ids:
-                return await self._send_error_response(
-                    message=message,
-                    template=self.template.messages.template_user_not_handler
-                )
-
             if not message.reply_to_message:
                 return await self._send_error_response(
                     message=message,
@@ -1105,12 +1091,6 @@ class HandlerMessages:
                 )
                 return
 
-            if message.from_user.id not in self.handler_admin_ids:
-                return await self._send_error_response(
-                    message=message,
-                    template=self.template.messages.template_user_not_handler
-                )
-            
             opened_tickets = await self.tickets.get_opened_tickets()
             if not opened_tickets:
                 return await self._send_error_response(
@@ -1169,12 +1149,6 @@ class HandlerMessages:
             )
             return
         
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_user_not_handler
-            )
-
         messages = message.reply_to_message.text or message.reply_to_message.caption
         matches = search(messages, MESSAGE_PATTERN)
         if not matches:
@@ -1378,12 +1352,6 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.handler_admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_user_not_handler
-            )
-        
         initial_message = self.messages.groupcommon(
             self.template.messages.template_typo_command
         )
@@ -1406,12 +1374,6 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.config.telegram.admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_admin_only
-            )
-        
         # Parse arguments: /regist <username> <role_id> <full_name>
         args = message.text.split()
         
@@ -1433,12 +1395,6 @@ class HandlerMessages:
             username=username,
             first_name=full_name,
             role_id=role_id
-        )
-
-        # Refresh Get User Handler
-        self.handler_admin_ids = (
-            self.config.telegram.admin_ids + 
-            [handler.id for handler in await self.tickets.get_all_handlers()]
         )
 
         escaped_username = self.markdown.escape_markdown(username)
@@ -1468,12 +1424,6 @@ class HandlerMessages:
         Returns:
             None
         """
-        if message.from_user.id not in self.config.telegram.admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_admin_only
-            )
-        
         handlers = await self.tickets.get_all_handlers()
         if not handlers:
             return await self._send_error_response(
@@ -1516,12 +1466,6 @@ class HandlerMessages:
                 template=self.template.messages.template_not_reply_bot
             )
         
-        if message.from_user.id not in self.config.telegram.admin_ids:
-            return await self._send_error_response(
-                message=message,
-                template=self.template.messages.template_admin_only
-            )
-        
         message_reply_text = message.reply_to_message.text or message.reply_to_message.caption
         if not message_reply_text:
             return await self._send_error_response(
@@ -1531,12 +1475,6 @@ class HandlerMessages:
         
         await self.tickets.deregistration_handler(
             user_id=message.reply_to_message.from_user.id
-        )
-        
-        # Refresh Get User Handler
-        self.handler_admin_ids = (
-            self.config.telegram.admin_ids + 
-            [handler.id for handler in await self.tickets.get_all_handlers()]
         )
         
         username = self.markdown.escape_markdown(message.reply_to_message.from_user.username)
