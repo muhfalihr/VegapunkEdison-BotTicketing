@@ -80,7 +80,7 @@ class BotTicketing(HandlerMessages):
 
         @self.telebot.message_handler(commands=["handlers"])
         async def user_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) == 3:
+            if await self.tickets.get_user_role(message.from_user.username) in [2, 3]:
                 await self.handler_get_user_handler(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_admin_only)
@@ -88,7 +88,7 @@ class BotTicketing(HandlerMessages):
 
         @self.telebot.message_handler(commands=["start"])
         async def start_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2, 3]:
                 await self.handler_message_start(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_warning_message)
@@ -97,7 +97,7 @@ class BotTicketing(HandlerMessages):
         @self.telebot.message_handler(commands=["close"], 
                                       chat_types=["group", "supergroup"])
         async def close_ticket_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) == 2:
+            if await self.tickets.get_user_role(message.from_user.username) in [2, 3]:
                 await self.handler_closed_tickets(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_user_not_handler)
@@ -106,7 +106,7 @@ class BotTicketing(HandlerMessages):
         @self.telebot.message_handler(commands=["open"], 
                                       chat_types=["group", "supergroup"])
         async def open_ticket_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) == 2:
+            if await self.tickets.get_user_role(message.from_user.username) in [2, 3]:
                 await self.handler_open_tickets(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_user_not_handler)
@@ -115,7 +115,7 @@ class BotTicketing(HandlerMessages):
         @self.telebot.message_handler(commands=["conversation"], 
                                       chat_types=["private", "group", "supergroup"])
         async def conversation_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2, 3]:
                 await self.handler_conversation(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_warning_message)
@@ -124,7 +124,7 @@ class BotTicketing(HandlerMessages):
         @self.telebot.message_handler(commands=["history"], 
                                       chat_types=["private", "group", "supergroup"])
         async def history_handler(message):
-            if await self.tickets.get_user_role(message.from_user.username) in [1, 2]:
+            if await self.tickets.get_user_role(message.from_user.username) in [1, 2, 3]:
                 await self.handler_history(message)
             else:
                 await self._send_error_response(message, self.template.messages.template_warning_message)
