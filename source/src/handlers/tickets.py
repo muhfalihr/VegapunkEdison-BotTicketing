@@ -228,6 +228,20 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to update user with id {id}: {str(e)}")
             raise
 
+    async def update_user_by_username(self, id: int, username: str, first_name: str, last_name: str):
+        try:
+            affected_rows = await User.objects.filter(username=username).update(
+                id=id,
+                first_name=first_name, 
+                last_name=last_name,
+                is_bot=False  # Assuming we want to set is_bot to False for this update
+            )
+            self.logger.info(f"Update user with username {username}")
+            return affected_rows > 0
+        except Exception as e:
+            self.logger.error(f"Failed to update user with username {username}: {str(e)}")
+            raise
+
     async def ensure_user(self, id: int, is_bot: bool, first_name: str, username: str, last_name: str) -> int:
         """
         Check if user exists, update details if needed, and return their role_id.
@@ -236,8 +250,11 @@ class HandlerTickets(BtAioMysql):
         try:
             # 1. Try to find user by ID
             user = await User.objects.filter(id=id).get()
+
+            self.logger.info(f"Ensuring user {id} (@{username}) exists in the database")
             
             if user:
+                self.logger.info(f"User {id} found, checking for updates...")
                 # Check for changes and update details if needed
                 has_changes = (
                     user.first_name != first_name or
@@ -253,16 +270,12 @@ class HandlerTickets(BtAioMysql):
 
             # 2. If ID not found, try to find by username (if available)
             if username:
+                self.logger.info(f"User ID {id} not found, checking by username @{username}...")
+
                 user_by_username = await User.objects.filter(username=username).get()
                 if user_by_username:
                     self.logger.info(f"User found by username @{username}, updating ID from {user_by_username.id} to {id}")
-                    # Use raw query to update primary key and other fields
-                    query = """
-                    UPDATE users 
-                    SET id = %s, first_name = %s, last_name = %s, is_bot = %s
-                    WHERE username = %s
-                    """
-                    await self.execute(query, (id, first_name, last_name, is_bot, username))
+                    await self.update_user_by_username(id, username, first_name, last_name)
                     return user_by_username.role_id
 
             # 3. User not found, register as new user
