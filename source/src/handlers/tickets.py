@@ -323,9 +323,9 @@ class HandlerTickets(BtAioMysql):
             self.logger.error(f"Failed to get user role for @{username}: {str(e)}")
             return 1
 
-    async def get_all_handlers(self) -> List[Handler]:
+    async def get_all_handlers(self) -> List[User]:
         try:
-            handlers = await Handler.objects.all()
+            handlers = await User.objects.filter(role_id=2).all()
             self.logger.debug(f"Retrieved {len(handlers)} handlers")
             return handlers
         except Exception as e:
@@ -334,7 +334,7 @@ class HandlerTickets(BtAioMysql):
         
     async def is_user_handler(self, user_id: int) -> bool:
         try:
-            return await Handler.is_handler(user_id)
+            return await User.is_handler(user_id)
         except Exception as e:
             self.logger.error(f"Failed to check handler status for user {user_id}: {str(e)}")
             raise

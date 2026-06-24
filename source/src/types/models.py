@@ -21,6 +21,11 @@ class User(Model):
     is_active: bool = True
     created_at: datetime = datetime.now()
 
+    @classmethod
+    async def is_handler(cls, user_id: int) -> bool:
+        """Check if a user is a handler"""
+        result = await cls.objects.filter(id=user_id, role_id=2).exists()
+        return result
 
 class Handler(Model):
     """Handler model representing support staff"""
